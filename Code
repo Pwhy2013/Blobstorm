@@ -1,0 +1,933 @@
+let player;
+let bullets = [];
+let enemies = [];
+let bulletSpeed = 5;
+let enemySpeed = 1;
+let score = 0;
+let powerUp;  // Declare the power-up object
+let enemyBullets = [];  // Array to store bullets fired by enemies
+let spawnInterval = 120;  // Enemy spawn every 120 frames (\~2 seconds at 60fps)
+let isPaused = false;
+let aoeExplosions = [];
+let droneChoicePending = false;
+let Dronelimit =4; 
+let startGame=false;
+
+
+
+function setup() {
+createCanvas(windowWidth, windowHeight);
+player = new Player();
+startGame=false;
+}
+function draw() {
+  background(175);
+
+  if (!startGame) {
+  fill(0);
+  textAlign(CENTER, CENTER);
+  textSize(32);
+  text("Press SPACE to Start", width / 2, height / 2 +10); // Slightly above center
+  textSize(50);
+  text(":) Blob Game :)", width / 2, height / 2 -60); // Slightly below center
+  if (keyIsDown(32)) {
+    startGame = true;
+  }
+  return; // Stop the game loop here until game starts
+}
+
+
+  if (player.health <= 0) {
+    gameOver();
+    return;
+  }
+
+  if (droneChoicePending) {
+    fill(0);
+    textSize(18);
+    textAlign(CENTER, CENTER);
+    text("Choose a drone:\n1. Ace Drone (Fast shooter)\n2. Laser Drone (Beam attack)\n3. AOE Drone (Explodes on contact)", width / 2, height / 2);
+    noLoop();
+    return;
+  }
+
+  if (isPaused) {
+    fill(0);
+    textSize(32);
+    textAlign(CENTER, CENTER);
+    text("PAUSED", width / 2, height / 2);
+    return;
+  }
+
+  
+  // Update and display player
+  player.update();
+  player.display();
+
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let bullet = bullets[i];
+    bullet.update();
+    bullet.display();
+
+    // Check collision with enemies
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      if (bullet.checkCollision(enemies[j])) {
+        enemies[j].takeDamage(player.bulletDamage);
+        bullets.splice(i, 1);
+        break;
+      }
+    }
+
+    
+
+    if (bullet.offscreen()) {
+      bullets.splice(i, 1);
+    }
+  }
+
+  // Display and check collisions for enemy bullets
+  for (let i = enemyBullets.length - 1; i >= 0; i--) {
+    let enemyBullet = enemyBullets[i];
+    enemyBullet.update();
+    enemyBullet.display();
+
+    if (enemyBullet.checkCollision(player)) {
+      player.health -= enemyBullet.damage; // Deal damage to player
+      enemyBullets.splice(i, 1); // Remove bullet after collision
+      break;
+    }
+
+    if (enemyBullet.offscreen()) {
+      enemyBullets.splice(i, 1); // Remove bullet if it's off the screen
+    }
+  }
+
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    let enemy = enemies[i];
+    enemy.update();
+    enemy.display();
+    if (dist(player.position.x, player.position.y, enemy.position.x, enemy.position.y) < player.size / 2 + enemy.size / 2) {
+      player.health -= 10;
+      enemies.splice(i, 1);
+    }
+  }
+// Dynamically adjust spawn interval (minimum cap to avoid chaos)
+spawnInterval = max(20, 120 - player.level * 5);
+
+  if (frameCount % spawnInterval === 0) {
+    spawnEnemy();
+  }
+
+ 
+  
+  player.displayLevelInfo();
+  // Display health bar
+  displayHealthBar();
+  
+  // Handle AOE explosions
+  for (let i = aoeExplosions.length - 1; i >= 0; i--) {
+    aoeExplosions[i].update();
+    aoeExplosions[i].display();
+    if (aoeExplosions[i].isExpired()) {
+      aoeExplosions.splice(i, 1);
+    }
+  }
+}
+
+
+
+class Player {
+constructor() {
+this.position = createVector(width / 2, height / 2);
+this.size = 20;
+this.speed = 5;
+this.health = 100;
+this.xp = 0;
+this.level = 1;
+this.weaponLevel = 1;
+this.bulletSpeed = bulletSpeed;
+this.bulletDamage = 1;
+this.fireRate = 200;
+this.lastShotTime = 0;
+this.multiShotActive = false;
+this.meleeDamage = 20;  // Melee damage value
+this.meleeCooldown = 1000; // Time in ms between attacks
+this.lastMeleeTime = 0;  // Track last time melee attack was used
+this.slashes =[];  // Initialize the array for slashes
+this.initializeKeyListener();
+this.hasDrone = false;
+this.drones = []; // replaces this.drone
+}
+
+update() {
+let move = createVector(0, 0);
+if (keyIsDown(87)) { move.y -= 1; } // W
+if (keyIsDown(83)) { move.y += 1; } // S
+if (keyIsDown(65)) { move.x -= 1; } // A
+if (keyIsDown(68)) { move.x += 1; } // D
+move.normalize().mult(this.speed);
+this.position.add(move);
+this.aim();
+for (let drone of this.drones) {
+drone.update();
+}
+
+this.constrain(); // Add this in Player's update()
+
+if (millis() - this.lastRespawn > this.cooldown && !this.ready) {
+this.respawn();
+}
+
+if (this.multiShotActive && millis() - this.multiShotTimer > 10000) { // 10 sec duration
+this.multiShotActive = false;
+}
+
+if (millis() - this.lastShotTime > this.fireRate && (mouseIsPressed || keyIsDown(32))) {
+this.shoot();
+this.lastShotTime = millis();
+}
+
+
+// Check for melee attack
+if (millis() - this.lastMeleeTime > this.meleeCooldown && keyIsDown(69)) {  // E key for melee
+  this.meleeAttack();
+  this.lastMeleeTime = millis();
+}
+
+
+
+// Update slashes (remove expired slashes)
+for (let i = this.slashes.length - 1; i >= 0; i--) {
+  if (this.slashes[i].update()) {
+    this.slashes.splice(i, 1);
+  }
+}
+
+
+}
+
+display() {
+  const angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
+  const shooting = mouseIsPressed || keyIsDown(32);
+  const armored = this.level >= 3;
+
+  drawPlayerCharacter(this.position.x, this.position.y, angle, shooting, armored);
+
+  for (let drone of this.drones) drone.display();
+  for (let slash of this.slashes) slash.display();
+}
+
+
+
+
+aim() {
+let mousePos = createVector(mouseX, mouseY);
+let angle = atan2(mousePos.y - this.position.y, mousePos.x - this.position.x);
+push();
+translate(this.position.x, this.position.y);
+rotate(angle);
+fill(0,200,100)
+rect(0, -5, this.size, 10); // Direction player is facing
+pop();
+}
+
+shoot() {
+if (this.multiShotActive) {
+for (let i = -1; i <= 1; i++) {
+let angleOffset = radians(15 * i);
+let bullet = new Bullet(this.position.x, this.position.y, mouseX, mouseY, this.bulletSpeed, this.bulletDamage, angleOffset);
+bullets.push(bullet);
+}
+} else {
+let bullet = new Bullet(this.position.x, this.position.y, mouseX, mouseY, this.bulletSpeed, this.bulletDamage);
+bullets.push(bullet);
+}
+}
+
+meleeAttack() {
+// Create the melee slash at the player's position, facing the mouse
+let angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
+this.slashes.push(new Slash(this.position.x, this.position.y, angle));
+
+
+// Check for collisions with enemies in the slash area
+for (let enemy of enemies) {
+  let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
+  if (d < 75) {  // Melee range
+    enemy.takeDamage(this.meleeDamage); // Apply melee damage
+  }
+}
+
+
+}
+
+activateMultiShot() {
+this.multiShotActive = true;
+}
+
+constrain(){// Ensure the player stays within canvas bounds
+this.position.x = constrain(this.position.x, this.size / 2, width - this.size / 2);
+this.position.y = constrain(this.position.y, this.size / 2, height - this.size / 2);
+}
+
+increaseXP(amount) {
+this.xp += amount;
+this.checkLevelUp();
+}
+
+checkLevelUp() {
+let xpNeeded = 100
+if (this.xp >= xpNeeded) {
+this.level++;
+this.xp = 0;
+this.upgradeWeapon();
+this.health =100;
+}
+}
+
+initializeKeyListener() {
+document.addEventListener('keydown', (event) => {
+switch (event.key.toLowerCase()) {
+case 'o': this.fireRate = 0; break;
+case 'i': this.multiShotActive = true; break;
+case 'j': this.health = 100; break;
+case 'l': this.level++; this.upgradeWeapon(); break;
+case 'k': this.meleeCooldown = 10; break;
+case 'b': droneChoicePending = true; break;
+case 'n': Dronelimit=100; break;
+}
+});
+}
+
+upgradeWeapon() {
+  if (this.level % 2 === 0) {
+    this.weaponLevel++; 
+  }
+  else if (this.weaponLevel%5 === 0)
+  droneChoicePending = true;
+    if (this.weaponLevel === 2) {
+      this.bulletSpeed = 7;
+    } else if (this.weaponLevel === 3) {
+      this.bulletDamage = 4
+      this.multiShotActive=true
+      
+    } else if (this.weaponLevel === 4) {
+      this.bulletDamage = 5;
+    } else if (this.weaponLevel === 5) {
+      this.hasDrone = true;
+      this.drones.push(new Drone(this, 0)); // First basic drone at angle 0
+    } 
+    else if (this.weaponLevel === 6) {
+      this.bulletSpeed = 10;
+  }
+}
+
+
+
+
+
+displayLevelInfo() {
+fill(0);
+textSize(16);
+text("Level: " + this.level, 10, 20);
+text("XP: " + this.xp, 10, 40);
+text("Weapon Level: " + this.weaponLevel, 10, 60);
+text("Health: " + this.health, 10, 80);
+text("Score: " + score, 10, 100); // Display the score here
+}
+}
+
+class Bullet {
+constructor(x, y, targetX, targetY, speed, damage, angleOffset = 0) {
+this.position = createVector(x, y);
+this.velocity = createVector(targetX - x, targetY - y);
+this.velocity.normalize().mult(speed);
+
+
+// Apply angle offset for multi-shot bullets
+this.velocity.rotate(angleOffset);
+
+
+this.size = 10;
+this.damage = damage; // Bullet damage
+
+
+}
+
+update() {
+this.position.add(this.velocity);
+}
+
+display() {
+fill(255, 0, 0);
+noStroke();
+ellipse(this.position.x, this.position.y, this.size);
+}
+
+offscreen() {
+return this.position.x < 0 || this.position.x > width || this.position.y < 0 || this.position.y > height;
+}
+
+checkCollision(enemy) {
+let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
+return d < this.size / 2 + enemy.size / 2;
+}
+}
+
+class Enemy {
+constructor(x, y) {
+this.position = createVector(x, y);
+this.size = 30;
+this.speed = 2
+this.health = 3 + player.level; // Increase health based on player's level
+}
+
+update() {
+let direction = createVector(player.position.x - this.position.x, player.position.y - this.position.y);
+direction.normalize().mult(this.speed);
+this.position.add(direction);
+}
+
+display() {
+fill(255, 0, 255);
+noStroke();
+ellipse(this.position.x, this.position.y, this.size);
+}
+
+takeDamage(damage) {
+this.health -= damage;
+if (this.health <= 0) {
+player.increaseXP(10); // Grant 10 XP for destroying this enemy
+score += 10 + player.level*2;
+
+  enemies.splice(enemies.indexOf(this), 1);  
+}
+
+
+}
+}
+
+class ShootingEnemy {
+constructor(x, y) {
+this.position = createVector(x, y);
+this.size = 30;
+this.speed = 2
+this.health = 3 + player.level; // Increase health based on player's level
+this.lastShotTime = 0; // For shooting interval
+this.shootInterval = 1500; // Time in ms between shots
+this.bulletSpeed = 5;
+this.bulletDamage = 1;
+}
+
+update() {
+let direction = createVector(player.position.x - this.position.x, player.position.y - this.position.y);
+direction.normalize().mult(this.speed);
+this.position.add(direction);
+
+// Shoot periodically
+if (millis() - this.lastShotTime > this.shootInterval) {
+  this.shoot();
+  this.lastShotTime = millis();
+}
+
+
+}
+
+display() {
+fill(255, 0, 0); // Red color for shooting enemy
+noStroke();
+ellipse(this.position.x, this.position.y, this.size);
+}
+
+takeDamage(damage) {
+this.health -= damage;
+if (this.health <= 0) {
+player.increaseXP(10); // Grant 10 XP for defeating this enemy
+score += 10 + player.level*5;
+enemies.splice(enemies.indexOf(this), 1);
+}
+}
+
+shoot() {
+let bullet = new EnemyBullet(this.position.x, this.position.y, player.position.x, player.position.y, this.bulletSpeed, this.bulletDamage);
+enemyBullets.push(bullet);  // Push the bullet to a separate array for enemy bullets
+}
+}
+
+// Handle shooting on mouse press
+function mousePressed() {
+player.shoot();
+}
+
+function gameOver() {
+fill(0);
+textSize(32);
+textAlign(CENTER, CENTER);
+text("GAME OVER", width / 2, height / 2);
+textSize(16);
+text("Score: " + score, width / 2, height / 2 + 40);
+text("level: "+player.level, width/2, height/2+ 80);
+}
+
+function resetGame() {
+player = new Player();
+bullets = [];
+enemies = [];
+score = 0;
+enemyBullets = [];
+aoeExplosions = [];
+spawnInterval = 120;
+}
+
+class EnemyBullet {
+constructor(x, y, targetX, targetY, speed, damage) {
+this.position = createVector(x, y);
+this.velocity = createVector(targetX - x, targetY - y);
+this.velocity.normalize().mult(speed);
+this.size = 10;
+this.damage = 5;
+}
+
+update() {
+this.position.add(this.velocity);
+}
+
+display() {
+fill(255, 165, 0); // Orange color for enemy bullets
+noStroke();
+ellipse(this.position.x, this.position.y, this.size);
+}
+
+offscreen() {
+return this.position.x < 0 || this.position.x > width || this.position.y < 0 || this.position.y > height;
+}
+
+checkCollision(player) {
+let d = dist(this.position.x, this.position.y, player.position.x, player.position.y);
+return d < this.size / 2 + player.size / 2;
+}
+}
+
+function displayHealthBar() {
+fill(255, 0, 0);  // Red color for health bar
+noStroke();
+let barWidth = 200;  // Width of the health bar
+let barHeight = 20;  // Height of the health bar
+let healthPercentage = player.health / 100;  // Health percentage (assuming max health is 100)
+
+// Draw the health bar background
+fill(100);
+rect(10, height - barHeight - 10, barWidth, barHeight);
+
+// Draw the health bar foreground (based on the player's current health)
+fill(255, 0, 0);  // Red color for the health bar fill
+rect(10, height - barHeight - 10, barWidth * healthPercentage, barHeight);
+}
+
+class Slash {
+constructor(x, y, angle) {
+this.x = x;
+this.y = y;
+this.angle = angle;
+this.size = 70;
+this.duration = 200; // in ms
+this.createdAt = millis();
+}
+
+update() {
+return millis() - this.createdAt > this.duration;
+}
+
+display() {
+push();
+translate(this.x, this.y);
+rotate(this.angle);
+fill(255, 255, 0, 150);
+noStroke();
+arc(0, 0, this.size, this.size, -PI / 4, PI / 4, PIE);
+pop();
+}
+}
+
+
+function displayMeleeCooldown() {
+let cooldownRatio = constrain((millis() - player.lastMeleeTime) / player.meleeCooldown, 0, 1);
+fill(150);
+rect(10, height - 40, 100, 10);
+fill(0, 255, 0);
+rect(10, height - 40, 100 * cooldownRatio, 10);
+}
+
+class LaserBeam {
+  constructor(source, target, damagePerSecond) {
+    this.source = source;
+    this.target = target;
+    this.damagePerSecond = damagePerSecond;
+  }
+
+  update() {
+    if (this.target) {
+      // Apply damage based on time passed
+      let damageThisFrame = this.damagePerSecond * (deltaTime / 1000);
+      this.target.takeDamage(damageThisFrame);
+    }
+  }
+
+  display() {
+    if (this.target) {
+      stroke(0, 255, 0);
+      strokeWeight(2);
+      line(this.source.x, this.source.y, this.target.position.x, this.target.position.y);
+    }
+  }
+}
+
+function spawnEnemy() {
+let x, y;
+do {
+x = random(width);
+y = random(height);
+} while (dist(x, y, player.position.x, player.position.y) < 100);
+
+if (random() < 0.5) {
+enemies.push(new Enemy(x, y));
+} else {
+enemies.push(new ShootingEnemy(x, y));
+}
+}
+
+
+// Drone Logic (Make sure drones are properly handled)
+class Drone {
+  constructor(player, angleOffset = 0) {
+    this.player = player;
+    this.orbitRadius = 50;
+    this.angle = angleOffset;
+    this.angleOffset = angleOffset; // Store initial offset
+    this.size = 15;
+    this.fireRate = 500;
+    this.lastShotTime = 0;
+    this.bulletSpeed = 4;
+    this.bulletDamage = 1;
+    this.position = createVector(player.position.x, player.position.y);
+  }
+
+  update() {
+    let target = this.getClosestTarget();
+    this.angle += 0.03;
+    this.position = createVector(
+      this.player.position.x + this.orbitRadius * cos(this.angle),
+      this.player.position.y + this.orbitRadius * sin(this.angle)
+    );
+
+    if (millis() - this.lastShotTime > this.fireRate && enemies.length > 0) {
+      if (this.isAOE) {
+        let d = dist(this.position.x, this.position.y, target.position.x, target.position.y);
+        if (d < 30) {
+          aoeExplosions.push(new AOEExplosion(this.position.x, this.position.y, 60, 3)); // AOE: 60px radius, 3 damage
+          this.lastShotTime = millis();
+        }
+      } else {
+        let bullet = new Bullet(
+          this.position.x, this.position.y,
+          target.position.x, target.position.y,
+          this.bulletSpeed,
+          this.bulletDamage
+        );
+        bullets.push(bullet);
+        this.lastShotTime = millis();
+      }
+    }
+  }
+
+  display() {
+  push();
+  noStroke();
+  fill(0, 200, 255, 80); // soft glow
+  ellipse(this.position.x, this.position.y, this.size + 10);
+   fill(0, 200, 255);
+  ellipse(this.position.x, this.position.y, this.size);
+  pop();
+}
+
+
+  getClosestTarget() {
+    let closest = null;
+    let minDist = Infinity;
+    for (let enemy of enemies) {
+      let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
+      if (d < minDist) {
+        closest = enemy;
+        minDist = d;
+      }
+    }
+    return closest;
+  }
+}
+
+// Ensure that player.drones doesn't exceed the Dronelimit
+function addDrone(newDrone) {
+  // Limit to 4 drones
+  if (player.drones.length >= Dronelimit) {
+  player.drones.shift(); // Remove the oldest drone
+}
+
+  player.drones.push(newDrone);
+  droneChoicePending = false;
+  loop(); // Resume the game
+}
+
+// Drone Upgrade (Correctly add drones)
+function keyPressed() {
+  if (key === 'p' || key === 'P') {
+    isPaused = !isPaused;
+    isPaused ? noLoop() : loop();
+  }
+
+  if (key === 'r' || key === 'R') {
+    if (player.health <= 0) {
+      resetGame();
+    }
+  }
+
+  if (droneChoicePending) {
+    if (key === '1') {
+      addDrone(new AceDrone(player, 0));
+    } else if (key === '2') {
+      addDrone(new LaserDrone(player, 0));
+    } else if (key === '3') {
+      addDrone(new AOEDrone(player, 0));
+    }
+  }
+}
+
+// Drone Type (AceDrone, LaserDrone, AOEDrone)
+class AceDrone extends Drone {
+  constructor(player, angleOffset = 0) {
+    super(player, angleOffset);
+    this.fireRate = 100; // Very fast
+    this.bulletSpeed = 10;
+    this.bulletDamage = .5;
+  }
+}
+
+class LaserDrone extends Drone {
+  constructor(player, angleOffset = 0) {
+    super(player, angleOffset);
+    this.beamLength = 2000000; // Laser range
+    this.damagePerSecond = 5; // Damage per second
+  }
+
+  update() {
+    // Orbit movement (copied from Drone)
+    this.angle += 0.03;
+    this.position = createVector(
+      this.player.position.x + this.orbitRadius * cos(this.angle),
+      this.player.position.y + this.orbitRadius * sin(this.angle)
+    );
+
+    // Laser damage logic
+    let target = this.getClosestTarget();
+    if (target) {
+      let delta = millis() - this.lastShotTime;
+      if (dist(this.position.x, this.position.y, target.position.x, target.position.y) < this.beamLength) {
+        target.takeDamage(this.damagePerSecond * delta / 1000);
+      }
+    }
+
+    this.lastShotTime = millis();
+  }
+
+  display() {
+    fill(0, 255, 0);
+    ellipse(this.position.x, this.position.y, this.size);
+
+    let target = this.getClosestTarget();
+    if (target) {
+      stroke(0, 255, 0);
+      strokeWeight(2);
+      line(this.position.x, this.position.y, target.position.x, target.position.y);
+      noStroke();
+    }
+  }
+}
+
+class AOEDrone extends Drone {
+  constructor(player, angleOffset = 0) {
+    super(player, angleOffset);
+    this.fireRate = 1000; // Fire rate for AOE Drone
+    this.isAOE = true; // Mark this drone as AOE
+    this.radius = 60; // Explosion radius
+    this.damage = 3;  // Damage dealt by the AOE explosion
+  }
+
+  update() {
+    this.angle += 0.03;
+    this.position = createVector(
+      this.player.position.x + this.orbitRadius * cos(this.angle),
+      this.player.position.y + this.orbitRadius * sin(this.angle)
+    );
+
+    for (let enemy of enemies) {
+      if (dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y) < 20) {
+        aoeExplosions.push(new AOEExplosion(this.position.x, this.position.y, this.radius, this.damage));
+        break;
+      }
+    }
+  }
+
+  display() {
+    fill(255, 0, 255);
+    ellipse(this.position.x, this.position.y, this.size);
+  }
+}
+
+class AOEExplosion {
+  constructor(x, y, radius, damage) {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.damage = damage;
+    this.createdAt = millis();
+    this.duration = 300; // visual effect duration
+    this.hasDamaged = false;
+  }
+
+  update() {
+    if (!this.hasDamaged) {
+      for (let enemy of enemies) {
+        let d = dist(this.x, this.y, enemy.position.x, enemy.position.y);
+        if (d < this.radius) {
+          enemy.takeDamage(this.damage);
+        }
+      }
+      this.hasDamaged = true;
+    }
+  }
+
+ display() {
+  let elapsed = millis() - this.createdAt;
+  let alpha = map(elapsed, 0, this.duration, 150, 0);
+  noFill();
+  stroke(255, 150, 0, alpha);
+  strokeWeight(3);
+  ellipse(this.x, this.y, this.radius * 2);
+}
+
+
+  isExpired() {
+    return millis() - this.createdAt > this.duration;
+  }
+}
+
+function drawHelmet(style = "basic") {
+  switch (style) {
+    case "military":
+      fill(30, 100, 30);
+      arc(0, -1, 30, 20, PI, 0, CHORD);
+      break;
+    case "riot":
+      fill(50);
+      arc(0, -1, 32, 18, PI, 0, CHORD);
+      fill(200, 220); // visor
+      rect(-8, -8, 16, 4, 2);
+      break;
+    default: // basic
+      fill(100);
+      arc(0, -1, 28, 18, PI, 0, CHORD);
+      break;
+  }
+}
+
+let helmetStyle = "basic";
+if (this.level >= 5) helmetStyle = "military";
+if (this.level >= 10) helmetStyle = "riot";
+
+function drawPlayerCharacter(x, y, direction, isShooting = false, hasArmor = false, helmetType = "basic") {
+  push();
+  translate(x, y);
+
+  // Shadow
+  noStroke();
+  fill(0, 0, 0, 60);
+  ellipse(4, 6, 36, 12);
+
+  // Backpack
+  push();
+  fill(60);
+  stroke(20);
+  strokeWeight(1);
+  ellipse(-10, 8, 14, 16);
+  pop();
+
+  // Armor Ring
+  if (hasArmor) {
+    stroke(0, 255, 100);
+    strokeWeight(3);
+    noFill();
+    ellipse(0, 0, 38);
+  }
+
+  // Body
+  fill(105, 180, 240);
+  stroke(30);
+  strokeWeight(2.5);
+  ellipse(0, 0, 34);
+
+  // Helmet
+  drawHelmet(helmetType);
+
+  // Gun
+  rotate(direction);
+
+  let recoilOffset = 0;
+  if (isShooting) {
+    recoilOffset = map(sin(frameCount * 0.5), -1, 1, -2, 2);
+  }
+
+  push();
+  translate(10 - recoilOffset, 0);
+
+  fill(50);
+  stroke(20);
+  strokeWeight(1.5);
+  rect(0, -4, 24, 8, 3);
+
+  if (isShooting && shouldShowFlash()) {
+    push();
+    translate(24, 0); // just past the gun
+    let flashAlpha = random(150, 255);
+    fill(255, 255, 0, flashAlpha);
+    noStroke();
+    triangle(0, -5, 15, 0, 0, 5);
+    pop();
+  }
+
+pop();
+pop();
+
+
+
+
+if (isShooting && shouldShowFlash()) {
+  push();
+  translate(10 - recoilOffset + 24, 0); // Move just beyond the gun rectangle
+  // No additional rotate needed; already rotated to `direction`
+
+  let flashAlpha = random(150, 255);
+
+  fill(255, 255, 0, flashAlpha);
+  noStroke();
+
+  triangle(0, -10, 15, 0, 0, 5);
+
+  pop();
+}
+
+}
+
+
+
+function shouldShowFlash() {
+  return frameCount % 6 < 2; // Flickers for 2 frames every ~6
+}
