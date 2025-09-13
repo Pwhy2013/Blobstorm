@@ -63,7 +63,7 @@ if (!startGame) {
 
   // --- Game Over ---
   if (player.health <= 0) {
-    gameOver();
+    drawGameOverScreen();
     return;
   }
 
@@ -840,16 +840,6 @@ function mousePressed() {
   player.shoot();
 }
 
-function gameOver() {
-  fill(0);
-  textSize(32);
-  textAlign(CENTER, CENTER);
-  text("GAME OVER", width / 2, height / 2);
-  textSize(16);
-  text("Money:  " + score, width / 2, height / 2 + 40);
-  text("level: " + player.level, width / 2, height / 2 + 80);
-  text("Press R to restart", width / 2, height / 2 + 120);
-}
 
 function resetGame() {
   player = new Player();
@@ -1399,4 +1389,35 @@ function drawTitleScreen() {
   let alpha = map(sin(frameCount * 0.05), -1, 1, 100, 255);
   fill(255, alpha);
   text("Press SPACE to Start", width / 2, height - 100);
+}
+function drawGameOverScreen() {
+  // dark overlay
+  fill(0, 180);
+  rect(0, 0, width, height);
+
+  // GAME OVER title
+  textAlign(CENTER, CENTER);
+  textSize(80);
+  fill(255, 0, 0);
+  stroke(0);
+  strokeWeight(6);
+  text("GAME OVER", width / 2, height / 2 - 100);
+
+  // final stats
+  noStroke();
+  textSize(32);
+  fill(255);
+  text("Final Score: " + score, width / 2, height / 2);
+  text("Highest Level: " + player.level, width / 2, height / 2 + 50);
+
+  // restart prompt
+  textSize(24);
+  fill(200);
+  text("Press R to Restart", width / 2, height / 2 + 120);
+
+  // little flashing effect on restart text
+  if (frameCount % 60 < 30) {
+    fill(255, 200, 200);
+    text("Press R to Restart", width / 2, height / 2 + 120);
+  }
 }
