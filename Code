@@ -1,56 +1,116 @@
+let fadeAlpha = 175; // fully opaque at start
+let isStarting = false; 
 let player;
 let bullets = [];
 let enemies = [];
 let bulletSpeed = 5;
 let enemySpeed = 1;
-let score = 0;
-let powerUp;  // Declare the power-up object
-let enemyBullets = [];  // Array to store bullets fired by enemies
-let spawnInterval = 120;  // Enemy spawn every 120 frames (\~2 seconds at 60fps)
+let score = 5000;
+let enemyBullets = [];
+let spawnInterval = 120;
 let isPaused = false;
 let aoeExplosions = [];
 let droneChoicePending = false;
-let Dronelimit =4; 
-let startGame=false;
-
-
+let Dronelimit = 200;
+let startGame = false; 
+let particles = [];
+let shopOpen = false;
+let upgradeOptions = [
+  { name: "Increase Max Health", cost: 50, action: () => { player.maxHealth += 20; player.health = min(player.health, player.maxHealth); } },
+  { name: "Increase Damage", cost: 50, action: () => { player.bulletDamage += 1; } },
+  { name: "Faster Fire Rate", cost: 50, action: () => { player.fireRate = max(10, player.fireRate - 10); } },
+  { name: "Increase Speed", cost: 50, action: () => { player.speed += 1; } },
+  { name: "Heal", cost: 30, action: () => { player.health = min(player.maxHealth, player.health + 30); } }
+];
 
 function setup() {
-createCanvas(windowWidth, windowHeight);
-player = new Player();
-startGame=false;
+  createCanvas(windowWidth, windowHeight);
+  player = new Player();
+  startGame = false;
+  textFont('Helvetica');
 }
+
 function draw() {
   background(175);
 
-  if (!startGame) {
-  fill(0);
-  textAlign(CENTER, CENTER);
-  textSize(32);
-  text("Press SPACE to Start", width / 2, height / 2 +10); // Slightly above center
-  textSize(50);
-  text(":) Blob Game :)", width / 2, height / 2 -60); // Slightly below center
+  // --- Start Screen ---
+if (!startGame) {
+  drawTitleScreen();
+
+  // Press SPACE to trigger fade-out
   if (keyIsDown(32)) {
-    startGame = true;
+    isStarting = true;
   }
-  return; // Stop the game loop here until game starts
+
+  // Smooth easing fade
+  if (isStarting) {
+    fadeAlpha = lerp(fadeAlpha, 0, 0.08); // easing speed (0.05–0.1 works well)
+    fill(0, fadeAlpha);
+    noStroke();
+    rect(0, 0, width, height);
+
+    // Once nearly transparent, switch to game
+    if (fadeAlpha < 2) {
+      fadeAlpha = 0;
+      startGame = true;
+      isStarting = false;
+    }
+  }
+
+  return;
 }
 
 
+  // --- Game Over ---
   if (player.health <= 0) {
     gameOver();
     return;
   }
 
-  if (droneChoicePending) {
-    fill(0);
-    textSize(18);
-    textAlign(CENTER, CENTER);
-    text("Choose a drone:\n1. Ace Drone (Fast shooter)\n2. Laser Drone (Beam attack)\n3. AOE Drone (Explodes on contact)", width / 2, height / 2);
-    noLoop();
-    return;
+  // --- Drone Choice (pause updates but keep drawing) ---
+if (droneChoicePending) {
+  // Dark overlay
+  fill(0, 180);
+  rect(0, 0, width, height);
+
+  textAlign(CENTER, CENTER);
+  textSize(32);
+  fill(255);
+  text("Choose Your Drone", width / 2, height / 2 - 180);
+
+  // Drone cards
+  let cardWidth = 200;
+  let cardHeight = 120;
+  let spacing = 50;
+  let startX = width / 2 - cardWidth - spacing;
+  let startY = height / 2 - cardHeight / 2;
+
+  let drones = [
+    { name: "Ace Drone", desc: "Fast shooter", color: color(0, 200, 255), key: "1" },
+    { name: "Laser Drone", desc: "Beam attack", color: color(0, 255, 0), key: "2" },
+    { name: "AOE Drone", desc: "Explodes on contact", color: color(255, 0, 255), key: "3" }
+  ];
+
+  for (let i = 0; i < drones.length; i++) {
+    let d = drones[i];
+    let x = startX + i * (cardWidth + spacing);
+    fill(d.color.levels[0], d.color.levels[1], d.color.levels[2], 180);
+    rect(x, startY, cardWidth, cardHeight, 12);
+
+    fill(255);
+    textSize(20);
+    text(d.name, x + cardWidth / 2, startY + 30);
+    textSize(16);
+    text(d.desc, x + cardWidth / 2, startY + 65);
+    textSize(14);
+    text(`Press ${d.key}`, x + cardWidth / 2, startY + 95);
   }
 
+  return; // stop game updates while choosing
+}
+
+
+  // --- Pause ---
   if (isPaused) {
     fill(0);
     textSize(32);
@@ -59,72 +119,59 @@ function draw() {
     return;
   }
 
-  
-  // Update and display player
+  // --- Shop Open ---
+  if (shopOpen) {
+    drawShop();
+    return;
+  }
+
+
+  // --- Game Logic ---
   player.update();
   player.display();
 
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    let bullet = bullets[i];
-    bullet.update();
-    bullet.display();
-
-    // Check collision with enemies
-    for (let j = enemies.length - 1; j >= 0; j--) {
-      if (bullet.checkCollision(enemies[j])) {
-        enemies[j].takeDamage(player.bulletDamage);
-        bullets.splice(i, 1);
-        break;
-      }
-    }
-
-    
-
-    if (bullet.offscreen()) {
-      bullets.splice(i, 1);
-    }
-  }
-
-  // Display and check collisions for enemy bullets
+  // Enemy Bullets
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     let enemyBullet = enemyBullets[i];
     enemyBullet.update();
     enemyBullet.display();
 
     if (enemyBullet.checkCollision(player)) {
-      player.health -= enemyBullet.damage; // Deal damage to player
-      enemyBullets.splice(i, 1); // Remove bullet after collision
-      break;
+      player.takeDamage(enemyBullet.damage);
+      enemyBullets.splice(i, 1);
+      continue;
     }
 
     if (enemyBullet.offscreen()) {
-      enemyBullets.splice(i, 1); // Remove bullet if it's off the screen
+      enemyBullets.splice(i, 1);
     }
   }
 
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    let enemy = enemies[i];
-    enemy.update();
-    enemy.display();
-    if (dist(player.position.x, player.position.y, enemy.position.x, enemy.position.y) < player.size / 2 + enemy.size / 2) {
-      player.health -= 10;
-      enemies.splice(i, 1);
-    }
-  }
-// Dynamically adjust spawn interval (minimum cap to avoid chaos)
-spawnInterval = max(20, 120 - player.level * 5);
-
-  if (frameCount % spawnInterval === 0) {
-    spawnEnemy();
-  }
-
- 
   
-  player.displayLevelInfo();
-  // Display health bar
+  // Enemies
+for (let i = enemies.length - 1; i >= 0; i--) {
+  let enemy = enemies[i];
+  enemy.update();
+  enemy.display();
+
+  if (enemy.markedForRemoval) continue;
+  if (
+    dist(player.position.x, player.position.y, enemy.position.x, enemy.position.y) <
+    player.size / 2 + enemy.size / 2
+  ) {
+    // use enemy-specific damage (default to 10 if not defined)
+    let dmg = enemy.damage ? enemy.damage : 10;
+    player.takeDamage(dmg);
+    enemy.markedForRemoval = true;
+  }
+}
+
+
+  // Health bar & Info Panel
   displayHealthBar();
-  
-  // Handle AOE explosions
+  displayLevelInfo();
+
+  // AOE Explosions
   for (let i = aoeExplosions.length - 1; i >= 0; i--) {
     aoeExplosions[i].update();
     aoeExplosions[i].display();
@@ -132,430 +179,776 @@ spawnInterval = max(20, 120 - player.level * 5);
       aoeExplosions.splice(i, 1);
     }
   }
+
+  // Bullets -> update, draw, collision
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let bullet = bullets[i];
+    bullet.update();
+    bullet.display();
+
+    // check enemies (skip already-removed)
+    for (let j = 0; j < enemies.length; j++) {
+      let enemy = enemies[j];
+      if (!enemy || enemy.markedForRemoval) continue;
+      if (bullet.checkCollision(enemy)) {
+  bullet.toRemove = true;
+  enemy.takeDamage(bullet.damage);
+  spawnParticles(bullet.position.x, bullet.position.y, 5);
+
+        break;
+      }
+    }
+    if (bullet.offscreen()) bullet.toRemove = true;
+    if (bullet.toRemove) bullets.splice(i, 1);
+  }
+
+  // remove any dead enemies after bullets processed
+  enemies = enemies.filter(e => !e.markedForRemoval);
+
+  // --- PARTICLE SYSTEM (single loop) ---
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].update();
+    particles[i].display();
+    if (particles[i].isDead()) {
+      particles.splice(i, 1);
+    }
+  }
+
+  // spawn enemies (difficulty scaling inside)
+  spawnEnemies();
+
 }
 
 
+function spawnEnemies() {
+  if (frameCount % spawnInterval === 0) {
+    let x, y;
+    if (random() < 0.5) {
+      x = random(width);
+      y = random() < 0.5 ? 0 : height;
+    } else {
+      x = random() < 0.5 ? 0 : width;
+      y = random(height);
+    }
+
+    // weighted random enemy selection
+    let r = random();
+    if (r < 0.35) {
+      enemies.push(new NormalEnemy(x, y, enemySpeed));
+    } else if (r < 0.55) {
+      enemies.push(new FastEnemy(x, y, enemySpeed * 1.5));
+    } else if (r < 0.75) {
+      enemies.push(new ZigZagEnemy(x, y, enemySpeed * 1.2));
+    } else if (r < 0.9) {
+      enemies.push(new ShootingEnemy(x, y, enemySpeed));
+    } else {
+      enemies.push(new TankEnemy(x, y, enemySpeed * 0.6));
+    }
+  }
+
+  // difficulty scaling
+  if (frameCount % (spawnInterval * 20) === 0 && spawnInterval > 30) {
+    spawnInterval -= 5;
+  }
+ 
+}
+
+
+function displayLevelInfo() {
+  let panelX = 20, panelY = 20, panelW = 170, panelH = 120;
+  fill(0, 140);
+  rect(panelX + 4, panelY + 4, panelW, panelH + 15, 18);
+  fill(30, 195);
+  rect(panelX, panelY, panelW, panelH + 15, 16);
+
+  fill(255);
+  textAlign(LEFT, TOP);
+  textSize(17);
+  textStyle(BOLD);
+  text("PLAYER", panelX + 16, panelY + 10);
+
+  textStyle(NORMAL);
+  textSize(15);
+  let y = panelY + 35, dy = 20;
+  text("🧬 Level:     " + player.level, panelX + 16, y); y += dy;
+  text("⭐ XP:        " + player.xp, panelX + 16, y); y += dy;
+  text("🔫 Weapon:    " + player.weaponLevel, panelX + 16, y); y += dy;
+  text("💵 Money:     " + score, panelX + 16, y); y += dy;
+  text("🩸 Health:    " + player.health + "/" + player.maxHealth, panelX + 16, y);
+}
 
 class Player {
-constructor() {
-this.position = createVector(width / 2, height / 2);
-this.size = 20;
-this.speed = 5;
-this.health = 100;
-this.xp = 0;
-this.level = 1;
-this.weaponLevel = 1;
-this.bulletSpeed = bulletSpeed;
-this.bulletDamage = 1;
-this.fireRate = 200;
-this.lastShotTime = 0;
-this.multiShotActive = false;
-this.meleeDamage = 20;  // Melee damage value
-this.meleeCooldown = 1000; // Time in ms between attacks
-this.lastMeleeTime = 0;  // Track last time melee attack was used
-this.slashes =[];  // Initialize the array for slashes
-this.initializeKeyListener();
-this.hasDrone = false;
-this.drones = []; // replaces this.drone
-}
+  constructor() {
+    this.position = createVector(width / 2, height / 2);
+    this.size = 20;
+    this.speed = 5;
+    this.maxHealth = 100;
+    this.health = 100;
+    this.xp = 0;
+    this.level = 1;
+    this.weaponLevel = 1;
+    this.bulletSpeed = bulletSpeed;
+    this.bulletDamage = 1;
+    this.fireRate = 200;
+    this.lastShotTime = 0;
+    this.multiShotActive = false;
+    this.meleeDamage = 20;
+    this.meleeCooldown = 1000;
+    this.lastMeleeTime = 0;
+    this.slashes = [];
+    this.armorLevel = 0;
+    this.hasDrone = false;
+    this.drones = [];
+    this.velocity = createVector(0, 0);
+  }
+  takeDamage(amount) {
+    let reduced = amount;
+    if (this.armorLevel === 1) reduced *= 0.8;
+    else if (this.armorLevel === 2) reduced *= 0.6;
+    else if (this.armorLevel === 3) reduced *= 0.4;
+    this.health -= reduced;
+    this.health = max(0, this.health);
+  }
+  update() {
+    let move = createVector(0, 0);
+    if (keyIsDown(87)) move.y -= 1;
+    if (keyIsDown(83)) move.y += 1;
+    if (keyIsDown(65)) move.x -= 1;
+    if (keyIsDown(68)) move.x += 1;
+    if (move.mag() > 0) move.normalize().mult(this.speed);
+    this.position.add(move);
+    this.aim();
+    for (let i = this.drones.length - 1; i >= 0; i--) {
+      // update drones, but skip removed-targets etc.
+      let d = this.drones[i];
+      if (d) d.update();
+    }
+    this.constrain();
+    if (millis() - this.lastShotTime > this.fireRate && (mouseIsPressed || keyIsDown(32))) {
+      this.shoot();
+      this.lastShotTime = millis();
+    }
+    if (millis() - this.lastMeleeTime > this.meleeCooldown && keyIsDown(69)) {
+      this.meleeAttack();
+      this.lastMeleeTime = millis();
+    }
+    for (let i = this.slashes.length - 1; i >= 0; i--) {
+      if (this.slashes[i].update()) {
+        this.slashes.splice(i, 1);
+      }
+    }
+  }
+  display() {
+    const angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
+    const shooting = mouseIsPressed || keyIsDown(32);
+    const armored = this.level >= 3;
+    for (let drone of this.drones) if (drone) drone.display();
+    for (let slash of this.slashes) slash.display();
+    let helmetStyle = "basic";
+    if (this.level >= 5) helmetStyle = "military";
+    if (this.level >= 10) helmetStyle = "riot";
+    drawPlayerCharacter(this.position.x, this.position.y, angle, shooting, armored, helmetStyle);
+  }
+  aim() {
+    let mousePos = createVector(mouseX, mouseY);
+    let angle = atan2(mousePos.y - this.position.y, mousePos.x - this.position.x);
+    push();
+    translate(this.position.x, this.position.y);
+    rotate(angle);
+    fill(0, 200, 100);
+    rect(0, -5, this.size, 10);
+    pop();
+  }
+  shoot() {
+  triggerFlash(); // flash effect
 
-update() {
-let move = createVector(0, 0);
-if (keyIsDown(87)) { move.y -= 1; } // W
-if (keyIsDown(83)) { move.y += 1; } // S
-if (keyIsDown(65)) { move.x -= 1; } // A
-if (keyIsDown(68)) { move.x += 1; } // D
-move.normalize().mult(this.speed);
-this.position.add(move);
-this.aim();
-for (let drone of this.drones) {
-drone.update();
-}
+  // calculate gun tip position
+  let angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
+  let gunForwardOffset = 16; // same as in drawPlayerCharacter
+  let gunLength = 24; // length of the gun rectangle
+  let tipX = this.position.x + (gunForwardOffset + gunLength) * cos(angle);
+  let tipY = this.position.y + (gunForwardOffset + gunLength) * sin(angle);
 
-this.constrain(); // Add this in Player's update()
-
-if (millis() - this.lastRespawn > this.cooldown && !this.ready) {
-this.respawn();
-}
-
-if (this.multiShotActive && millis() - this.multiShotTimer > 10000) { // 10 sec duration
-this.multiShotActive = false;
-}
-
-if (millis() - this.lastShotTime > this.fireRate && (mouseIsPressed || keyIsDown(32))) {
-this.shoot();
-this.lastShotTime = millis();
-}
-
-
-// Check for melee attack
-if (millis() - this.lastMeleeTime > this.meleeCooldown && keyIsDown(69)) {  // E key for melee
-  this.meleeAttack();
-  this.lastMeleeTime = millis();
-}
-
-
-
-// Update slashes (remove expired slashes)
-for (let i = this.slashes.length - 1; i >= 0; i--) {
-  if (this.slashes[i].update()) {
-    this.slashes.splice(i, 1);
+  if (this.multiShotActive) {
+    for (let i = -1; i <= 1; i++) {
+      let angleOffset = radians(15 * i);
+      let bullet = new Bullet(
+        tipX,
+        tipY,
+        mouseX,
+        mouseY,
+        this.bulletSpeed,
+        this.bulletDamage,
+        angleOffset
+      );
+      bullets.push(bullet);
+    }
+  } else {
+    let bullet = new Bullet(
+      tipX,
+      tipY,
+      mouseX,
+      mouseY,
+      this.bulletSpeed,
+      this.bulletDamage
+    );
+    bullets.push(bullet);
   }
 }
 
-
-}
-
-display() {
-  const angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
-  const shooting = mouseIsPressed || keyIsDown(32);
-  const armored = this.level >= 3;
-
-  drawPlayerCharacter(this.position.x, this.position.y, angle, shooting, armored);
-
-  for (let drone of this.drones) drone.display();
-  for (let slash of this.slashes) slash.display();
-}
-
-
-
-
-aim() {
-let mousePos = createVector(mouseX, mouseY);
-let angle = atan2(mousePos.y - this.position.y, mousePos.x - this.position.x);
-push();
-translate(this.position.x, this.position.y);
-rotate(angle);
-fill(0,200,100)
-rect(0, -5, this.size, 10); // Direction player is facing
-pop();
-}
-
-shoot() {
-if (this.multiShotActive) {
-for (let i = -1; i <= 1; i++) {
-let angleOffset = radians(15 * i);
-let bullet = new Bullet(this.position.x, this.position.y, mouseX, mouseY, this.bulletSpeed, this.bulletDamage, angleOffset);
-bullets.push(bullet);
-}
-} else {
-let bullet = new Bullet(this.position.x, this.position.y, mouseX, mouseY, this.bulletSpeed, this.bulletDamage);
-bullets.push(bullet);
-}
-}
-
-meleeAttack() {
-// Create the melee slash at the player's position, facing the mouse
-let angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
-this.slashes.push(new Slash(this.position.x, this.position.y, angle));
-
-
-// Check for collisions with enemies in the slash area
-for (let enemy of enemies) {
-  let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
-  if (d < 75) {  // Melee range
-    enemy.takeDamage(this.meleeDamage); // Apply melee damage
+  meleeAttack() {
+    let angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
+    this.slashes.push(new Slash(this.position.x, this.position.y, angle));
+    for (let enemy of enemies) {
+      if (!enemy || enemy.markedForRemoval) continue;
+      let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
+      if (d < 75) {
+        enemy.takeDamage(this.meleeDamage);
+      }
+    }
+  }
+  activateMultiShot() {
+    this.multiShotActive = true;
+  }
+  constrain() {
+    this.position.x = constrain(this.position.x, this.size / 2, width - this.size / 2);
+    this.position.y = constrain(this.position.y, this.size / 2, height - this.size / 2);
+  }
+  increaseXP(amount) {
+    this.xp += amount;
+    this.checkLevelUp();
+  }
+  checkLevelUp() {
+  let xpNeeded = this.level * 100;
+  while (this.xp >= xpNeeded) {
+    this.level++;
+    this.xp -= xpNeeded;  // ✅ keep leftover XP
+    this.upgradeWeapon();
+    this.health = this.maxHealth;
+    xpNeeded = this.level * 100; // ✅ recalc for next level
   }
 }
 
+  
+  upgradeWeapon() {
+    // Weapon progression based on level increments
+    if (this.level % 2 === 0) {
+      this.weaponLevel++;
+    } else if (this.weaponLevel % 5 === 0) {
+      droneChoicePending = true;
+    }
 
-}
-
-activateMultiShot() {
-this.multiShotActive = true;
-}
-
-constrain(){// Ensure the player stays within canvas bounds
-this.position.x = constrain(this.position.x, this.size / 2, width - this.size / 2);
-this.position.y = constrain(this.position.y, this.size / 2, height - this.size / 2);
-}
-
-increaseXP(amount) {
-this.xp += amount;
-this.checkLevelUp();
-}
-
-checkLevelUp() {
-let xpNeeded = 100
-if (this.xp >= xpNeeded) {
-this.level++;
-this.xp = 0;
-this.upgradeWeapon();
-this.health =100;
-}
-}
-
-initializeKeyListener() {
-document.addEventListener('keydown', (event) => {
-switch (event.key.toLowerCase()) {
-case 'o': this.fireRate = 0; break;
-case 'i': this.multiShotActive = true; break;
-case 'j': this.health = 100; break;
-case 'l': this.level++; this.upgradeWeapon(); break;
-case 'k': this.meleeCooldown = 10; break;
-case 'b': droneChoicePending = true; break;
-case 'n': Dronelimit=100; break;
-}
-});
-}
-
-upgradeWeapon() {
-  if (this.level % 2 === 0) {
-    this.weaponLevel++; 
-  }
-  else if (this.weaponLevel%5 === 0)
-  droneChoicePending = true;
     if (this.weaponLevel === 2) {
-      this.bulletSpeed = 7;
+      this.bulletSpeed=7;
     } else if (this.weaponLevel === 3) {
-      this.bulletDamage = 4
-      this.multiShotActive=true
-      
-    } else if (this.weaponLevel === 4) {
-      this.bulletDamage = 5;
-    } else if (this.weaponLevel === 5) {
-      this.hasDrone = true;
-      this.drones.push(new Drone(this, 0)); // First basic drone at angle 0
+      this.multiShotActive = true;
+      this.armorLevel = 1;
     } 
-    else if (this.weaponLevel === 6) {
-      this.bulletSpeed = 10;
+     else if (this.weaponLevel === 5) {
+      this.hasDrone = true;
+    } else if (this.weaponLevel === 6) {
+      this.armorLevel = 2;
+       this.bulletSpeed=10;
+    } else if (this.weaponLevel === 10) {
+      this.armorLevel = 3;
+    }
   }
 }
 
+// --- Particle class ---
+class Particle {
+  constructor(x, y) {
+    this.pos = createVector(x, y);
+    this.vel = p5.Vector.random2D().mult(random(1, 4));
+    this.lifespan = 60; // frames
+    this.size = random(3, 7);
+    this.col = color(random(150, 255), random(50, 200), random(50, 200));
+  }
 
+  update() {
+    this.pos.add(this.vel);
+    this.vel.mult(0.95);
+    this.lifespan--;
+  }
 
+  display() {
+    noStroke();
+    fill(red(this.col), green(this.col), blue(this.col), this.lifespan * 4);
+    ellipse(this.pos.x, this.pos.y, this.size);
+  }
 
-
-displayLevelInfo() {
-fill(0);
-textSize(16);
-text("Level: " + this.level, 10, 20);
-text("XP: " + this.xp, 10, 40);
-text("Weapon Level: " + this.weaponLevel, 10, 60);
-text("Health: " + this.health, 10, 80);
-text("Score: " + score, 10, 100); // Display the score here
+  isDead() {
+    return this.lifespan <= 0;
+  }
 }
+
+// --- helper to spawn multiple particles ---
+function spawnParticles(x, y, count = 10) {
+  for (let i = 0; i < count; i++) {
+    particles.push(new Particle(x + random(-6,6), y + random(-6,6)));
+  }
 }
+
 
 class Bullet {
-constructor(x, y, targetX, targetY, speed, damage, angleOffset = 0) {
-this.position = createVector(x, y);
-this.velocity = createVector(targetX - x, targetY - y);
-this.velocity.normalize().mult(speed);
+  constructor(x, y, targetX, targetY, speed, damage, angleOffset = 0) {
+    this.position = createVector(x, y);
+    this.velocity = createVector(targetX - x, targetY - y);
+    this.velocity.normalize().mult(speed);
+    this.velocity.rotate(angleOffset);
+    this.size = 10;
+    this.damage = damage;
+    this.toRemove = false;
 
+    this.trail = []; // store past positions for trail
+    this.maxTrailLength = 8; // adjust for longer/shorter trail
+  }
 
-// Apply angle offset for multi-shot bullets
-this.velocity.rotate(angleOffset);
+  update() {
+    // add current position to trail
+    this.trail.push(this.position.copy());
+    if (this.trail.length > this.maxTrailLength) {
+      this.trail.shift(); // remove oldest point
+    }
 
+    this.position.add(this.velocity);
+  }
 
-this.size = 10;
-this.damage = damage; // Bullet damage
+  display() {
+    // draw trail
+    noFill();
+    stroke(200, 100);
+    strokeWeight(this.size / 2);
+    beginShape();
+    for (let v of this.trail) {
+      vertex(v.x, v.y);
+    }
+    endShape();
 
+    // draw bullet
+    noStroke();
+    fill(255, 0, 0);
+    ellipse(this.position.x, this.position.y, this.size);
+  }
+
+  offscreen() {
+    return (
+      this.position.x < -10 ||
+      this.position.x > width + 10 ||
+      this.position.y < -10 ||
+      this.position.y > height + 10
+    );
+  }
+
+ checkCollision(enemy) {
+    if (!enemy) return false;
+    let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
+    return d < this.size / 2 + enemy.size / 2;
+  }
 
 }
 
-update() {
-this.position.add(this.velocity);
-}
-
-display() {
-fill(255, 0, 0);
-noStroke();
-ellipse(this.position.x, this.position.y, this.size);
-}
-
-offscreen() {
-return this.position.x < 0 || this.position.x > width || this.position.y < 0 || this.position.y > height;
-}
-
-checkCollision(enemy) {
-let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
-return d < this.size / 2 + enemy.size / 2;
-}
-}
-
+// ---------------- BASE ENEMY ----------------
 class Enemy {
-constructor(x, y) {
-this.position = createVector(x, y);
-this.size = 30;
-this.speed = 2
-this.health = 3 + player.level; // Increase health based on player's level
+  constructor(x, y, speed) {
+    this.position = createVector(x, y);
+    this.speed = speed;
+    this.size = 30;
+    this.health = 1;
+    this.velocity = createVector();
+    this.markedForRemoval = false;
+    // ✅ Default rewards
+    this.xpValue = 10;
+    this.moneyValue = 10;
+  
+  }
+
+  update() {
+    if (!player) return;
+    let angle = atan2(player.position.y - this.position.y, player.position.x - this.position.x);
+    this.velocity = createVector(cos(angle), sin(angle)).mult(this.speed);
+    this.position.add(this.velocity);
+  }
+
+  display() {
+    fill(200, 0, 0);
+    ellipse(this.position.x, this.position.y, this.size);
+  }
+
+  takeDamage(amount) {
+  if (this.markedForRemoval) return false;
+  this.health -= amount;
+  if (this.health <= 0) {
+    if (player) player.increaseXP(this.xpValue * (1 + player.level * 0.1));
+    score += this.moneyValue * (1 + player.level * 0.1);
+    spawnParticles(this.position.x, this.position.y, 20);
+    this.markedForRemoval = true;
+    return true;
+  }
+  return false;
 }
 
-update() {
-let direction = createVector(player.position.x - this.position.x, player.position.y - this.position.y);
-direction.normalize().mult(this.speed);
-this.position.add(direction);
-}
-
-display() {
-fill(255, 0, 255);
-noStroke();
-ellipse(this.position.x, this.position.y, this.size);
-}
-
-takeDamage(damage) {
-this.health -= damage;
-if (this.health <= 0) {
-player.increaseXP(10); // Grant 10 XP for destroying this enemy
-score += 10 + player.level*2;
-
-  enemies.splice(enemies.indexOf(this), 1);  
-}
-
-
-}
-}
-
-class ShootingEnemy {
-constructor(x, y) {
-this.position = createVector(x, y);
-this.size = 30;
-this.speed = 2
-this.health = 3 + player.level; // Increase health based on player's level
-this.lastShotTime = 0; // For shooting interval
-this.shootInterval = 1500; // Time in ms between shots
-this.bulletSpeed = 5;
-this.bulletDamage = 1;
-}
-
-update() {
-let direction = createVector(player.position.x - this.position.x, player.position.y - this.position.y);
-direction.normalize().mult(this.speed);
-this.position.add(direction);
-
-// Shoot periodically
-if (millis() - this.lastShotTime > this.shootInterval) {
-  this.shoot();
-  this.lastShotTime = millis();
 }
 
 
+// ---------------- NORMAL ENEMY ----------------
+class NormalEnemy extends Enemy {
+  constructor(x, y, speed) {
+    super(x, y, speed);
+    this.size = 35;
+    this.health = 5;
+    this.damage = 20;
+    this.xpValue = 10;
+    this.moneyValue = 15;
+  }
+
+  display() {
+    push();
+    translate(this.position.x, this.position.y);
+
+    fill(180, 80, 80);
+    stroke(100, 30, 30);
+    strokeWeight(2);
+    ellipse(0, 0, this.size);
+
+    // Eyes
+    fill(255);
+    noStroke();
+    ellipse(-7, -3, 10, 10);
+    ellipse(7, -3, 10, 10);
+
+    fill(0);
+    ellipse(-7, -3, 5, 5);
+    ellipse(7, -3, 5, 5);
+    pop();
+  }
 }
 
-display() {
-fill(255, 0, 0); // Red color for shooting enemy
-noStroke();
-ellipse(this.position.x, this.position.y, this.size);
+// ---------------- FAST ENEMY ----------------
+class FastEnemy extends Enemy {
+  constructor(x, y, speed) {
+    super(x, y, speed * 2);
+    this.size = 30;
+    this.health = 3;
+    this.rotation = random(TWO_PI);
+    this.xpValue = 15;
+    this.moneyValue = 5;
+  }
+
+  display() {
+    push();
+    translate(this.position.x, this.position.y);
+    rotate(this.rotation + frameCount * 0.15);
+
+    fill(255, 220, 120);
+    stroke(255, 180, 60);
+    strokeWeight(2);
+    beginShape();
+    for (let a = 0; a < TWO_PI; a += PI / 6) {
+      let r = (a % (PI / 3) === 0) ? this.size : this.size / 2;
+      vertex(cos(a) * r, sin(a) * r);
+    }
+    endShape(CLOSE);
+    pop();
+  }
 }
 
-takeDamage(damage) {
-this.health -= damage;
-if (this.health <= 0) {
-player.increaseXP(10); // Grant 10 XP for defeating this enemy
-score += 10 + player.level*5;
-enemies.splice(enemies.indexOf(this), 1);
-}
+// ---------------- ZIGZAG ENEMY ----------------
+class ZigZagEnemy extends Enemy {
+  constructor(x, y, speed) {
+    super(x, y, speed);
+    this.size = 32;
+    this.health = 8;
+    this.angleOffset = random(TWO_PI);
+    this.zigSpeed = 0.04;
+    this.damage = 20;
+    this.xpValue = 20;
+    this.moneyValue = 20;
+  }
+  update() {
+    if (!player) return;
+    // move toward player with a perpendicular oscillation
+    let angleToPlayer = atan2(player.position.y - this.position.y, player.position.x - this.position.x);
+    let perp = angleToPlayer + HALF_PI;
+    let zig = sin(frameCount * this.zigSpeed + this.angleOffset) * 2;
+    let vx = cos(angleToPlayer) * this.speed + cos(perp) * zig;
+    let vy = sin(angleToPlayer) * this.speed + sin(perp) * zig;
+    this.position.x += vx;
+    this.position.y += vy;
+  }
+  display() {
+    push();
+    translate(this.position.x, this.position.y);
+    fill(220, 120, 180);
+    stroke(140, 50, 100);
+    ellipse(0, 0, this.size);
+    pop();
+  }
 }
 
-shoot() {
-let bullet = new EnemyBullet(this.position.x, this.position.y, player.position.x, player.position.y, this.bulletSpeed, this.bulletDamage);
-enemyBullets.push(bullet);  // Push the bullet to a separate array for enemy bullets
-}
+// ---------------- TANK ENEMY ----------------
+class TankEnemy extends Enemy {
+  constructor(x, y, speed) {
+    super(x, y, speed * 0.5);
+    this.size = 50;
+    this.health = 60;
+    this.damage = 50;  
+      this.xpValue = 200;
+    this.moneyValue = 150;
+  }
+ 
+  display() {
+    push();
+    rectMode(CENTER);
+    translate(this.position.x, this.position.y);
+
+    fill(80, 80, 130);
+    stroke(40, 40, 80);
+    strokeWeight(4);
+    rect(0, 0, this.size, this.size, 8);
+
+    noStroke();
+    fill(200, 50, 50, 180);
+    ellipse(0, 0, this.size * 0.4);
+
+    stroke(255, 80);
+    strokeWeight(2);
+    line(-this.size/2, 0, this.size/2, 0);
+    line(0, -this.size/2, 0, this.size/2);
+    pop();
+  }
 }
 
-// Handle shooting on mouse press
+
+class ShootingEnemy extends Enemy {
+  constructor(x, y, speed) {
+    super(x, y, speed);
+    this.size = 40;
+    this.health = 8;
+
+    this.orbitRadius = random(80, 120);
+    this.orbitAngle = 0;
+    this.orbitSpeed = 0.02; // slower orbit
+    this.orbitDuration = 60; // frames to orbit
+    this.orbitTimer = 0;
+
+    this.state = "approach"; // 'approach', 'orbit'
+  }
+
+  update() {
+    if (!player) return;
+
+    const dx = player.position.x - this.position.x;
+    const dy = player.position.y - this.position.y;
+    const distance = dist(this.position.x, this.position.y, player.position.x, player.position.y);
+
+    if (this.state === "approach") {
+      // Move toward player
+      const moveSpeed = 1.5; // slower approach
+      this.position.x += (dx / distance) * moveSpeed;
+      this.position.y += (dy / distance) * moveSpeed;
+
+      // Start orbit briefly if close enough
+      if (distance < this.orbitRadius + 20) {
+        this.state = "orbit";
+        this.orbitAngle = atan2(this.position.y - player.position.y, this.position.x - player.position.x);
+        this.orbitTimer = this.orbitDuration;
+      }
+    } 
+    else if (this.state === "orbit") {
+      // Smooth sliding orbit
+      let targetX = player.position.x + this.orbitRadius * cos(this.orbitAngle);
+      let targetY = player.position.y + this.orbitRadius * sin(this.orbitAngle);
+
+      // Move towards orbit position smoothly
+      const slideFactor = 0.05; // smaller = slower, smoother
+      this.position.x += (targetX - this.position.x) * slideFactor;
+      this.position.y += (targetY - this.position.y) * slideFactor;
+
+      // Advance orbit angle
+      this.orbitAngle += this.orbitSpeed;
+
+      this.orbitTimer--;
+
+      // Stop orbiting if timer ends or player moves significantly
+      if (this.orbitTimer <= 0 || (abs(player.velocity.x) > 0.3 || abs(player.velocity.y) > 0.3)) {
+        this.state = "approach";
+        this.orbitRadius = random(80, 120); // randomize next orbit distance
+      }
+    }
+
+    // Shooting at player
+    if (frameCount % 90 === 0) {
+      enemyBullets.push(new EnemyBullet(
+        this.position.x, this.position.y,
+        player.position.x, player.position.y,
+        4, 5
+      ));
+    }
+  }
+
+  display() {
+    push();
+    translate(this.position.x, this.position.y);
+
+    // --- Main body ---
+    fill(80, 140, 230);
+    stroke(40, 90, 180);
+    strokeWeight(2.5);
+    ellipse(0, 0, this.size);
+
+    // --- Cannon barrel ---
+    let angle = atan2(player.position.y - this.position.y, player.position.x - this.position.x);
+    push();
+    rotate(angle);
+    fill(60, 100, 200);
+    rectMode(CENTER);
+    rect(this.size * 0.35, 0, this.size * 0.7, this.size * 0.25, 4);
+    pop();
+
+    // --- Eye / core ---
+    noStroke();
+    fill(255, 255, 255, 220);
+    ellipse(0, 0, this.size * 0.4);
+
+    fill(255, 50, 50, 200);
+    ellipse(0, 0, this.size * 0.25);
+
+    // --- Charging effect ---
+    if (this.isCharging) {
+      let t = frameCount - this.chargeStart;
+      let pulse = this.size * (0.9 + 0.15 * sin(t * 0.3));
+      noFill();
+      stroke(255, 80, 80, map(sin(t * 0.3), -1, 1, 50, 180));
+      strokeWeight(3);
+      ellipse(0, 0, pulse + 15);
+
+      // glowing aura
+      fill(255, 80, 80, 80);
+      ellipse(0, 0, pulse + 25);
+    }
+
+    pop();
+  }
+}
+
+
+
 function mousePressed() {
-player.shoot();
+  // prevent shooting from happening while in menu/shop/paused
+  if (!startGame || isPaused || shopOpen || droneChoicePending) return;
+  player.shoot();
 }
 
 function gameOver() {
-fill(0);
-textSize(32);
-textAlign(CENTER, CENTER);
-text("GAME OVER", width / 2, height / 2);
-textSize(16);
-text("Score: " + score, width / 2, height / 2 + 40);
-text("level: "+player.level, width/2, height/2+ 80);
+  fill(0);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("GAME OVER", width / 2, height / 2);
+  textSize(16);
+  text("Money:  " + score, width / 2, height / 2 + 40);
+  text("level: " + player.level, width / 2, height / 2 + 80);
+  text("Press R to restart", width / 2, height / 2 + 120);
 }
 
 function resetGame() {
-player = new Player();
-bullets = [];
-enemies = [];
-score = 0;
-enemyBullets = [];
-aoeExplosions = [];
-spawnInterval = 120;
-}
+  player = new Player();
+  bullets = [];
+  enemies = [];
+  score = 0;
+  enemyBullets = [];
+  aoeExplosions = [];
+  spawnInterval = 120;
+  particles = [];
+  shopOpen = false;
+  isPaused = false;
+  droneChoicePending = false;
+  Dronelimit = 200;
+  startGame = false; 
+  }
+
 
 class EnemyBullet {
-constructor(x, y, targetX, targetY, speed, damage) {
-this.position = createVector(x, y);
-this.velocity = createVector(targetX - x, targetY - y);
-this.velocity.normalize().mult(speed);
-this.size = 10;
-this.damage = 5;
-}
-
-update() {
-this.position.add(this.velocity);
-}
-
-display() {
-fill(255, 165, 0); // Orange color for enemy bullets
-noStroke();
-ellipse(this.position.x, this.position.y, this.size);
-}
-
-offscreen() {
-return this.position.x < 0 || this.position.x > width || this.position.y < 0 || this.position.y > height;
-}
-
-checkCollision(player) {
-let d = dist(this.position.x, this.position.y, player.position.x, player.position.y);
-return d < this.size / 2 + player.size / 2;
-}
+  constructor(x, y, targetX, targetY, speed, damage) {
+    this.position = createVector(x, y);
+    this.velocity = createVector(targetX - x, targetY - y);
+    this.velocity.normalize().mult(speed);
+    this.size = 10;
+    this.damage = damage;
+  }
+  update() {
+    this.position.add(this.velocity);
+  }
+  display() {
+    fill(255, 165, 0);
+    noStroke();
+    ellipse(this.position.x, this.position.y, this.size);
+  }
+  offscreen() {
+    return (
+      this.position.x < -10 ||
+      this.position.x > width + 10 ||
+      this.position.y < -10 ||
+      this.position.y > height + 10
+    );
+  }
+  checkCollision(player) {
+    let d = dist(this.position.x, this.position.y, player.position.x, player.position.y);
+    return d < this.size / 2 + player.size / 2;
+  }
 }
 
 function displayHealthBar() {
-fill(255, 0, 0);  // Red color for health bar
-noStroke();
-let barWidth = 200;  // Width of the health bar
-let barHeight = 20;  // Height of the health bar
-let healthPercentage = player.health / 100;  // Health percentage (assuming max health is 100)
-
-// Draw the health bar background
-fill(100);
-rect(10, height - barHeight - 10, barWidth, barHeight);
-
-// Draw the health bar foreground (based on the player's current health)
-fill(255, 0, 0);  // Red color for the health bar fill
-rect(10, height - barHeight - 10, barWidth * healthPercentage, barHeight);
+  let barWidth = 220;
+  let barHeight = 22;
+  let x = 20, y = height - barHeight - 30;
+  let healthPercentage = constrain(player.health / player.maxHealth, 0, 1);
+  noStroke();
+  fill(0, 60);
+  rect(x + 3, y + 3, barWidth, barHeight, 12);
+  fill(60);
+  rect(x, y, barWidth, barHeight, 10);
+  let c1 = color(60, 220, 58);
+  let c2 = color(255, 220, 40);
+  let c3 = color(235, 50, 50);
+  let healthColor = lerpColor(c1, c2, map(healthPercentage, 1, 0.5, 0, 1));
+  if (healthPercentage < 0.5) {
+    healthColor = lerpColor(c2, c3, map(healthPercentage, 0.5, 0, 0, 1));
+  }
+  fill(healthColor);
+  rect(x, y, barWidth * healthPercentage, barHeight, 10);
+  noFill();
+  stroke(0, 180);
+  strokeWeight(2);
+  rect(x, y, barWidth, barHeight, 10);
+  noStroke();
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(16);
+  text(`Health: ${Math.round(player.health)} / ${player.maxHealth}`, x + barWidth / 2, y + barHeight / 2);
 }
 
 class Slash {
-constructor(x, y, angle) {
-this.x = x;
-this.y = y;
-this.angle = angle;
-this.size = 70;
-this.duration = 200; // in ms
-this.createdAt = millis();
-}
-
-update() {
-return millis() - this.createdAt > this.duration;
-}
-
-display() {
-push();
-translate(this.x, this.y);
-rotate(this.angle);
-fill(255, 255, 0, 150);
-noStroke();
-arc(0, 0, this.size, this.size, -PI / 4, PI / 4, PIE);
-pop();
-}
-}
-
-
-function displayMeleeCooldown() {
-let cooldownRatio = constrain((millis() - player.lastMeleeTime) / player.meleeCooldown, 0, 1);
-fill(150);
-rect(10, height - 40, 100, 10);
-fill(0, 255, 0);
-rect(10, height - 40, 100 * cooldownRatio, 10);
+  constructor(x, y, angle) {
+    this.x = x;
+    this.y = y;
+    this.angle = angle;
+    this.size = 70;
+    this.duration = 200;
+    this.createdAt = millis();
+  }
+  update() {
+    return millis() - this.createdAt > this.duration;
+  }
+  display() {
+    push();
+    translate(this.x, this.y);
+    rotate(this.angle);
+    fill(255, 255, 0, 150);
+    noStroke();
+    arc(0, 0, this.size, this.size, -PI / 4, PI / 4, PIE);
+    pop();
+  }
 }
 
 class LaserBeam {
@@ -564,15 +957,12 @@ class LaserBeam {
     this.target = target;
     this.damagePerSecond = damagePerSecond;
   }
-
   update() {
     if (this.target) {
-      // Apply damage based on time passed
       let damageThisFrame = this.damagePerSecond * (deltaTime / 1000);
       this.target.takeDamage(damageThisFrame);
     }
   }
-
   display() {
     if (this.target) {
       stroke(0, 255, 0);
@@ -582,55 +972,47 @@ class LaserBeam {
   }
 }
 
-function spawnEnemy() {
-let x, y;
-do {
-x = random(width);
-y = random(height);
-} while (dist(x, y, player.position.x, player.position.y) < 100);
+// --- Drones ---
 
-if (random() < 0.5) {
-enemies.push(new Enemy(x, y));
-} else {
-enemies.push(new ShootingEnemy(x, y));
-}
-}
-
-
-// Drone Logic (Make sure drones are properly handled)
 class Drone {
   constructor(player, angleOffset = 0) {
     this.player = player;
     this.orbitRadius = 50;
     this.angle = angleOffset;
-    this.angleOffset = angleOffset; // Store initial offset
+    this.angleOffset = angleOffset;
     this.size = 15;
-    this.fireRate = 500;
+    this.fireRate = 500; // ms
     this.lastShotTime = 0;
     this.bulletSpeed = 4;
     this.bulletDamage = 1;
     this.position = createVector(player.position.x, player.position.y);
+    this.isAOE = false;
   }
-
   update() {
     let target = this.getClosestTarget();
-    this.angle += 0.03;
+    // make rotation frame-rate independent
+    let fpsScale = (typeof deltaTime !== 'undefined' && deltaTime > 0) ? (deltaTime / 16.67) : 1;
+    this.angle += 0.03 * fpsScale;
     this.position = createVector(
       this.player.position.x + this.orbitRadius * cos(this.angle),
       this.player.position.y + this.orbitRadius * sin(this.angle)
     );
 
+    if (!target) return;
+
     if (millis() - this.lastShotTime > this.fireRate && enemies.length > 0) {
       if (this.isAOE) {
         let d = dist(this.position.x, this.position.y, target.position.x, target.position.y);
         if (d < 30) {
-          aoeExplosions.push(new AOEExplosion(this.position.x, this.position.y, 60, 3)); // AOE: 60px radius, 3 damage
+          aoeExplosions.push(new AOEExplosion(this.position.x, this.position.y, 60, 3));
           this.lastShotTime = millis();
         }
       } else {
         let bullet = new Bullet(
-          this.position.x, this.position.y,
-          target.position.x, target.position.y,
+          this.position.x,
+          this.position.y,
+          target.position.x,
+          target.position.y,
           this.bulletSpeed,
           this.bulletDamage
         );
@@ -639,22 +1021,20 @@ class Drone {
       }
     }
   }
-
   display() {
-  push();
-  noStroke();
-  fill(0, 200, 255, 80); // soft glow
-  ellipse(this.position.x, this.position.y, this.size + 10);
-   fill(0, 200, 255);
-  ellipse(this.position.x, this.position.y, this.size);
-  pop();
-}
-
-
+    push();
+    noStroke();
+    fill(0, 200, 255, 80);
+    ellipse(this.position.x, this.position.y, this.size + 10);
+    fill(0, 200, 255);
+    ellipse(this.position.x, this.position.y, this.size);
+    pop();
+  }
   getClosestTarget() {
     let closest = null;
     let minDist = Infinity;
     for (let enemy of enemies) {
+      if (!enemy || enemy.markedForRemoval) continue;
       let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
       if (d < minDist) {
         closest = enemy;
@@ -665,83 +1045,48 @@ class Drone {
   }
 }
 
-// Ensure that player.drones doesn't exceed the Dronelimit
 function addDrone(newDrone) {
-  // Limit to 4 drones
+  if (!player) return;
   if (player.drones.length >= Dronelimit) {
-  player.drones.shift(); // Remove the oldest drone
-}
-
+    player.drones.shift();
+  }
   player.drones.push(newDrone);
   droneChoicePending = false;
-  loop(); // Resume the game
 }
 
-// Drone Upgrade (Correctly add drones)
-function keyPressed() {
-  if (key === 'p' || key === 'P') {
-    isPaused = !isPaused;
-    isPaused ? noLoop() : loop();
-  }
-
-  if (key === 'r' || key === 'R') {
-    if (player.health <= 0) {
-      resetGame();
-    }
-  }
-
-  if (droneChoicePending) {
-    if (key === '1') {
-      addDrone(new AceDrone(player, 0));
-    } else if (key === '2') {
-      addDrone(new LaserDrone(player, 0));
-    } else if (key === '3') {
-      addDrone(new AOEDrone(player, 0));
-    }
-  }
-}
-
-// Drone Type (AceDrone, LaserDrone, AOEDrone)
 class AceDrone extends Drone {
   constructor(player, angleOffset = 0) {
     super(player, angleOffset);
-    this.fireRate = 100; // Very fast
+    this.fireRate = 100;
     this.bulletSpeed = 10;
-    this.bulletDamage = .5;
+    this.bulletDamage = 0.5;
   }
 }
 
 class LaserDrone extends Drone {
   constructor(player, angleOffset = 0) {
     super(player, angleOffset);
-    this.beamLength = 2000000; // Laser range
-    this.damagePerSecond = 5; // Damage per second
+    this.beamLength = 2000000;
+    this.damagePerSecond = 5;
   }
-
   update() {
-    // Orbit movement (copied from Drone)
-    this.angle += 0.03;
+    // frame-rate independent rotation
+    let fpsScale = (typeof deltaTime !== 'undefined' && deltaTime > 0) ? (deltaTime / 16.67) : 1;
+    this.angle += 0.03 * fpsScale;
     this.position = createVector(
       this.player.position.x + this.orbitRadius * cos(this.angle),
       this.player.position.y + this.orbitRadius * sin(this.angle)
     );
-
-    // Laser damage logic
     let target = this.getClosestTarget();
     if (target) {
-      let delta = millis() - this.lastShotTime;
-      if (dist(this.position.x, this.position.y, target.position.x, target.position.y) < this.beamLength) {
-        target.takeDamage(this.damagePerSecond * delta / 1000);
-      }
+      // damage scaled by deltaTime (seconds)
+      let damageThisFrame = this.damagePerSecond * (deltaTime / 1000);
+      target.takeDamage(damageThisFrame);
     }
-
-    this.lastShotTime = millis();
   }
-
   display() {
     fill(0, 255, 0);
     ellipse(this.position.x, this.position.y, this.size);
-
     let target = this.getClosestTarget();
     if (target) {
       stroke(0, 255, 0);
@@ -755,27 +1100,31 @@ class LaserDrone extends Drone {
 class AOEDrone extends Drone {
   constructor(player, angleOffset = 0) {
     super(player, angleOffset);
-    this.fireRate = 1000; // Fire rate for AOE Drone
-    this.isAOE = true; // Mark this drone as AOE
-    this.radius = 60; // Explosion radius
-    this.damage = 3;  // Damage dealt by the AOE explosion
+    this.fireRate = 1000;
+    this.isAOE = true;
+    this.radius = 60;
+    this.damage = 3;
+    this.lastShotTime = 0;
   }
-
   update() {
-    this.angle += 0.03;
+    let fpsScale = (typeof deltaTime !== 'undefined' && deltaTime > 0) ? (deltaTime / 16.67) : 1;
+    this.angle += 0.03 * fpsScale;
     this.position = createVector(
       this.player.position.x + this.orbitRadius * cos(this.angle),
       this.player.position.y + this.orbitRadius * sin(this.angle)
     );
-
-    for (let enemy of enemies) {
-      if (dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y) < 20) {
-        aoeExplosions.push(new AOEExplosion(this.position.x, this.position.y, this.radius, this.damage));
-        break;
+    if (millis() - this.lastShotTime > this.fireRate) {
+      // check if any enemy is within trigger radius
+      for (let enemy of enemies) {
+        if (!enemy || enemy.markedForRemoval) continue;
+        if (dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y) < 20) {
+          aoeExplosions.push(new AOEExplosion(this.position.x, this.position.y, this.radius, this.damage));
+          this.lastShotTime = millis();
+          break;
+        }
       }
     }
   }
-
   display() {
     fill(255, 0, 255);
     ellipse(this.position.x, this.position.y, this.size);
@@ -789,145 +1138,265 @@ class AOEExplosion {
     this.radius = radius;
     this.damage = damage;
     this.createdAt = millis();
-    this.duration = 300; // visual effect duration
+    this.duration = 300;
     this.hasDamaged = false;
   }
-
   update() {
     if (!this.hasDamaged) {
+      // damage all valid enemies inside radius once
       for (let enemy of enemies) {
+        if (!enemy || enemy.markedForRemoval) continue;
         let d = dist(this.x, this.y, enemy.position.x, enemy.position.y);
         if (d < this.radius) {
           enemy.takeDamage(this.damage);
         }
       }
+      // spawn visible particles for the explosion
+      spawnParticles(this.x, this.y, 20);
       this.hasDamaged = true;
     }
   }
-
- display() {
-  let elapsed = millis() - this.createdAt;
-  let alpha = map(elapsed, 0, this.duration, 150, 0);
-  noFill();
-  stroke(255, 150, 0, alpha);
-  strokeWeight(3);
-  ellipse(this.x, this.y, this.radius * 2);
-}
-
-
+  display() {
+    let elapsed = millis() - this.createdAt;
+    let alpha = map(elapsed, 0, this.duration, 150, 0);
+    noFill();
+    stroke(255, 150, 0, alpha);
+    strokeWeight(3);
+    ellipse(this.x, this.y, this.radius * 2);
+  }
   isExpired() {
     return millis() - this.createdAt > this.duration;
   }
 }
 
-function drawHelmet(style = "basic") {
-  switch (style) {
-    case "military":
-      fill(30, 100, 30);
-      arc(0, -1, 30, 20, PI, 0, CHORD);
-      break;
-    case "riot":
-      fill(50);
-      arc(0, -1, 32, 18, PI, 0, CHORD);
-      fill(200, 220); // visor
-      rect(-8, -8, 16, 4, 2);
-      break;
-    default: // basic
-      fill(100);
-      arc(0, -1, 28, 18, PI, 0, CHORD);
-      break;
+function drawShop() {
+  background(50, 100, 150, 220);
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(36);
+  text("SHOP", width / 2, 60);
+
+  textSize(18);
+  text("Press P to Exit", width / 2, 100);
+
+  // Draw upgrade list
+  textAlign(LEFT, TOP);
+  let startY = 150;
+  let spacing = 60;
+
+  for (let i = 0; i < upgradeOptions.length; i++) {
+    let option = upgradeOptions[i];
+
+    // Panel background
+    fill(30, 150);
+    rect(width / 2 - 180, startY + i * spacing - 10, 360, 50, 12);
+
+    // Text
+    fill(255);
+    textSize(20);
+    text(`${i + 1}. ${option.name}`, width / 2 - 160, startY + i * spacing);
+    textSize(16);
+    text(`Cost: ${option.cost}`, width / 2 + 100, startY + i * spacing);
+
+    // If not enough score, gray it out
+    if (score < option.cost) {
+      fill(255, 80);
+      rect(width / 2 - 180, startY + i * spacing - 10, 360, 50, 12);
+      fill(200, 80);
+      text(`${i + 1}. ${option.name}`, width / 2 - 160, startY + i * spacing);
+      text(`Cost: ${option.cost}`, width / 2 + 100, startY + i * spacing);
+    }
   }
 }
 
-let helmetStyle = "basic";
-if (this.level >= 5) helmetStyle = "military";
-if (this.level >= 10) helmetStyle = "riot";
+function keyPressed() {
+  // --- SHOP TOGGLE ---
+  if (key === "p" || key === "P") {
+    shopOpen = !shopOpen;
+    return;
+  }
 
-function drawPlayerCharacter(x, y, direction, isShooting = false, hasArmor = false, helmetType = "basic") {
+  // --- EXIT SHOP (ESC) ---
+  if (shopOpen && keyCode === ESCAPE) {
+    shopOpen = false;
+    return;
+  }
+
+  // --- SHOP PURCHASES ---
+  if (shopOpen) {
+    let choice = parseInt(key);
+    if (!isNaN(choice) && choice >= 1 && choice <= upgradeOptions.length) {
+      let option = upgradeOptions[choice - 1];
+      if (score >= option.cost) {
+        score -= option.cost;
+        option.action(); // apply upgrade
+      }
+    }
+    return; // don’t trigger other actions when shop is open
+  }
+
+  // --- GAME OVER RESTART ---
+  if (player.health <= 0 && (key === "r" || key === "R")) {
+    resetGame();
+    return;
+  }
+
+  // --- DRONE CHOICE ---
+  if (droneChoicePending) {
+    if (key === "1") addDrone(new AceDrone(player, random(TWO_PI)));
+    else if (key === "2") addDrone(new LaserDrone(player, random(TWO_PI)));
+    else if (key === "3") addDrone(new AOEDrone(player, random(TWO_PI)));
+    return;
+  }
+
+  // --- PAUSE ---
+  if (keyCode === ESCAPE) {
+    isPaused = !isPaused;
+    return;
+  }
+}
+
+
+function drawHelmet(style = "basic") {
+  push();
+  noStroke();
+  let helmetSize = 25; // slightly smaller than player body (34)
+  switch (style) {
+    case "military":
+      fill(30, 100, 30); // dark green
+      break;
+    case "riot":
+      fill(80, 80, 80); // gray
+      break;
+    default: // basic
+      fill(100); // light gray
+      break;
+  }
+  ellipse(0, 0, helmetSize, helmetSize);
+  pop();
+}
+
+
+// Track last flash timing
+let lastFlashTime = 0;
+const flashDuration = 100; // milliseconds
+
+function triggerFlash() {
+  lastFlashTime = millis();
+}
+
+function shouldShowFlash() {
+  return millis() - lastFlashTime < flashDuration;
+}
+function drawPlayerCharacter(
+  x,
+  y,
+  direction,
+  isShooting = false,
+  hasArmor = false,
+  helmetType = "military"
+) {
   push();
   translate(x, y);
 
-  // Shadow
-  noStroke();
-  fill(0, 0, 0, 60);
-  ellipse(4, 6, 36, 12);
 
-  // Backpack
-  push();
-  fill(60);
-  stroke(20);
-  strokeWeight(1);
-  ellipse(-10, 8, 14, 16);
-  pop();
-
-  // Armor Ring
-  if (hasArmor) {
-    stroke(0, 255, 100);
-    strokeWeight(3);
-    noFill();
-    ellipse(0, 0, 38);
-  }
-
-  // Body
+  // --- Body (upright, no rotation) ---
   fill(105, 180, 240);
   stroke(30);
   strokeWeight(2.5);
   ellipse(0, 0, 34);
 
-  // Helmet
+  // --- Helmet (upright) ---
   drawHelmet(helmetType);
 
-  // Gun
-  rotate(direction);
+  // --- Rotate for gun + arms only ---
+  // --- Rotate for gun + arms only ---
+push();
+rotate(direction);
 
-  let recoilOffset = 0;
-  if (isShooting) {
-    recoilOffset = map(sin(frameCount * 0.5), -1, 1, -2, 2);
-  }
+// Gun
+let gunForwardOffset = 19; // increase this to move the gun further out
+let recoilOffset = 0;
+if (isShooting) {
+  recoilOffset = map(sin(frameCount * 0.5), -1, 1, -2, 2);
+}
+translate(gunForwardOffset - recoilOffset, 0); // move gun forward
+fill(50);
+stroke(20);
+strokeWeight(1.5);
+rect(0, -4, 24, 8, 3);
 
-  push();
-  translate(10 - recoilOffset, 0);
+// Hands
+let gunLength = 24;
+let handOffsetY = 6;
+fill(200, 180, 150);
+noStroke();
+ellipse(0 - recoilOffset, -handOffsetY, 8, 8); // left hand above gun
+ellipse(gunLength - recoilOffset, handOffsetY, 8, 8); // right hand below gun
 
-  fill(50);
-  stroke(20);
-  strokeWeight(1.5);
-  rect(0, -4, 24, 8, 3);
-
-  if (isShooting && shouldShowFlash()) {
-    push();
-    translate(24, 0); // just past the gun
-    let flashAlpha = random(150, 255);
-    fill(255, 255, 0, flashAlpha);
-    noStroke();
-    triangle(0, -5, 15, 0, 0, 5);
-    pop();
-  }
-
-pop();
-pop();
-
-
-
-
+// Muzzle flash
 if (isShooting && shouldShowFlash()) {
   push();
-  translate(10 - recoilOffset + 24, 0); // Move just beyond the gun rectangle
-  // No additional rotate needed; already rotated to `direction`
-
-  let flashAlpha = random(150, 255);
-
-  fill(255, 255, 0, flashAlpha);
+  translate(gunLength, 0);
+  let t = map(millis() - lastFlashTime, 0, flashDuration, 1, 0);
+  fill(255, 255, 0, 200 * t);
   noStroke();
-
-  triangle(0, -10, 15, 0, 0, 5);
-
+  ellipse(12, 0, 12 * t, 8 * t);
   pop();
 }
 
+pop(); // end gun/arms rotation
+
+  pop(); // end player transform
 }
 
+function drawTitleScreen() {
+  // --- Background ---
+  background(20);
+  
+  // floating particles for atmosphere
+  for (let i = 0; i < 40; i++) {
+    let x = (frameCount * 0.3 + i * 80) % width;
+    let y = (i * 200 + frameCount * 0.7) % height;
+    noStroke();
+    fill(100 + sin(frameCount * 0.02 + i) * 80, 150, 255, 120);
+    ellipse(x, y, 6 + sin(frameCount * 0.05 + i) * 3);
+  }
 
+  // --- Title Glow ---
+  textAlign(CENTER, CENTER);
+  let glow = abs(sin(frameCount * 0.05)) * 180 + 75;
+  textSize(80);
+  fill(0, glow, 255);
+  textStyle(BOLD);
+  text("!!BLOB GAME!!", width / 2, height / 2 - 120);
 
-function shouldShowFlash() {
-  return frameCount % 6 < 2; // Flickers for 2 frames every ~6
+  // --- Subtitle ---
+  textSize(28);
+  fill(200);
+  text("Objective: DONT DIE!!!!", width / 2, height / 2 - 60);
+
+  // --- Controls Box ---
+  let boxW = 320, boxH = 160;
+  fill(30, 180);
+  rect(width / 2 - boxW/2, height / 2 - boxH/2 + 40, boxW, boxH, 18);
+  
+  textSize(18);
+  fill(255);
+  textAlign(LEFT, TOP);
+  let bx = width/2 - boxW/2 + 20;
+  let by = height/2 - boxH/2 + 55;
+  text("🕹️ Controls:", bx, by); by += 28;
+  text("WASD - Move", bx, by); by += 22;
+  text("Mouse / left click - Shoot", bx, by); by += 22;
+  text("E - Melee Attack", bx, by); by += 22;
+  text("ESC - Pause / P - Shop", bx, by);
+
+  // --- Start Prompt ---
+  textAlign(CENTER, CENTER);
+  textSize(24);
+  let alpha = map(sin(frameCount * 0.05), -1, 1, 100, 255);
+  fill(255, alpha);
+  text("Press SPACE to Start", width / 2, height - 100);
 }
