@@ -941,26 +941,6 @@ class Slash {
   }
 }
 
-class LaserBeam {
-  constructor(source, target, damagePerSecond) {
-    this.source = source;
-    this.target = target;
-    this.damagePerSecond = damagePerSecond;
-  }
-  update() {
-    if (this.target) {
-      let damageThisFrame = this.damagePerSecond * (deltaTime / 1000);
-      this.target.takeDamage(damageThisFrame);
-    }
-  }
-  display() {
-    if (this.target) {
-      stroke(0, 255, 0);
-      strokeWeight(2);
-      line(this.source.x, this.source.y, this.target.position.x, this.target.position.y);
-    }
-  }
-}
 
 // --- Drones ---
 
