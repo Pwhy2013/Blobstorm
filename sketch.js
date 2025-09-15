@@ -15,6 +15,11 @@ let Dronelimit = 200;
 let startGame = false; 
 let particles = [];
 let shopOpen = false;
+let ammo = 30;          // bullets per magazine
+let maxAmmo = 30;
+let isReloading = false;
+let reloadTime = 2000;  // 2 seconds to reload
+let reloadStart = 0;
 let upgradeOptions = [
   { name: "Increase Max Health", cost: 50, action: () => { player.maxHealth += 20; player.health = min(player.health, player.maxHealth); } },
   { name: "Increase Damage", cost: 50, action: () => { player.bulletDamage += 1; } },
@@ -125,6 +130,12 @@ if (droneChoicePending) {
     return;
   }
 
+if (isReloading) {
+  if (millis() - reloadStart >= reloadTime) {
+    ammo = maxAmmo;
+    isReloading = false;
+  }
+}
 
   // --- Game Logic ---
   player.update();
@@ -170,7 +181,7 @@ for (let i = enemies.length - 1; i >= 0; i--) {
   // Health bar & Info Panel
   displayHealthBar();
   displayLevelInfo();
-
+  displayReloadBar();
   // AOE Explosions
   for (let i = aoeExplosions.length - 1; i >= 0; i--) {
     aoeExplosions[i].update();
@@ -276,6 +287,25 @@ function displayLevelInfo() {
   text("💵 Money:     " + score, panelX + 16, y); y += dy;
   text("🩸 Health:    " + player.health + "/" + player.maxHealth, panelX + 16, y);
 }
+function displayReloadBar() {
+  if (!isReloading) return;
+  let barWidth = 200;
+  let barHeight = 10;
+  let x = 20;
+  let y = height - barHeight - 60;
+  let progress = (millis() - reloadStart) / reloadTime;
+  progress = constrain(progress, 0, 1);
+  
+  noStroke();
+  fill(0, 60);
+  rect(x, y, barWidth, barHeight, 8);
+  fill(50, 150, 250);
+  rect(x, y, barWidth * progress, barHeight, 8);
+  fill(255);
+  textSize(12);
+  textAlign(LEFT, CENTER);
+  text("Reloading...", x + 5, y + barHeight / 2);
+}
 
 class Player {
   constructor() {
@@ -300,6 +330,7 @@ class Player {
     this.hasDrone = false;
     this.drones = [];
     this.velocity = createVector(0, 0);
+    this.didShoot = false;
   }
   takeDamage(amount) {
     let reduced = amount;
@@ -360,39 +391,35 @@ class Player {
     pop();
   }
   shoot() {
-  triggerFlash(); // flash effect
+  if (isReloading || ammo <= 0) {
+    this.didShoot = false;
+    return;
+  }
 
-  // calculate gun tip position
+  ammo--; // consume one bullet
+  triggerFlash();
+
   let angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
-  let gunForwardOffset = 16; // same as in drawPlayerCharacter
-  let gunLength = 24; // length of the gun rectangle
+  let gunForwardOffset = 16;
+  let gunLength = 24;
   let tipX = this.position.x + (gunForwardOffset + gunLength) * cos(angle);
   let tipY = this.position.y + (gunForwardOffset + gunLength) * sin(angle);
 
   if (this.multiShotActive) {
     for (let i = -1; i <= 1; i++) {
       let angleOffset = radians(15 * i);
-      let bullet = new Bullet(
-        tipX,
-        tipY,
-        mouseX,
-        mouseY,
-        this.bulletSpeed,
-        this.bulletDamage,
-        angleOffset
-      );
-      bullets.push(bullet);
+      bullets.push(new Bullet(tipX, tipY, mouseX, mouseY, this.bulletSpeed, this.bulletDamage, angleOffset));
     }
   } else {
-    let bullet = new Bullet(
-      tipX,
-      tipY,
-      mouseX,
-      mouseY,
-      this.bulletSpeed,
-      this.bulletDamage
-    );
-    bullets.push(bullet);
+    bullets.push(new Bullet(tipX, tipY, mouseX, mouseY, this.bulletSpeed, this.bulletDamage));
+  }
+
+  this.didShoot = true;
+
+  // Handle reload
+  if (ammo <= 0) {
+    isReloading = true;
+    reloadStart = millis();
   }
 }
 
@@ -1287,8 +1314,9 @@ rotate(direction);
 
 // Gun
 let gunForwardOffset = 19; // increase this to move the gun further out
+// only apply recoil if shot actually fired
 let recoilOffset = 0;
-if (isShooting) {
+if (isShooting && player.didShoot) {
   recoilOffset = map(sin(frameCount * 0.5), -1, 1, -2, 2);
 }
 translate(gunForwardOffset - recoilOffset, 0); // move gun forward
@@ -1399,5 +1427,14 @@ function drawGameOverScreen() {
   if (frameCount % 60 < 30) {
     fill(255, 200, 200);
     text("Press R to Restart", width / 2, height / 2 + 120);
+  }
+}
+function drawAmmo() {
+  fill(255);
+  textSize(16);
+  if (isReloading) {
+    text("Reloading...", 20, 20);
+  } else {
+    text("Ammo: " + ammo + " / " + maxAmmo, 20, 20);
   }
 }
