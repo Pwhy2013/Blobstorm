@@ -25,7 +25,14 @@ let upgradeOptions = [
   { name: "Increase Damage", cost: 50, action: () => { player.bulletDamage += 1; } },
   { name: "Faster Fire Rate", cost: 50, action: () => { player.fireRate = max(10, player.fireRate - 10); } },
   { name: "Increase Speed", cost: 50, action: () => { player.speed += 1; } },
-  { name: "Heal", cost: 30, action: () => { player.health = min(player.maxHealth, player.health + 30); } }
+  { name: "Heal", cost: 30, action: () => { player.health = min(player.maxHealth, player.health + 30); } },
+ { name: "Increase Magazine Size",
+  cost: 100,action: () => {
+  if (!player.magazineSize) player.magazineSize = 30;
+  if (player.magazineSize < 300) {  
+  player.magazineSize += 5;
+    player.ammo = player.magazineSize;
+  }}}
 ];
 
 function setup() {
@@ -1177,35 +1184,58 @@ function drawShop() {
   textSize(18);
   text("Press P to Exit", width / 2, 100);
 
-  // Draw upgrade list
   textAlign(LEFT, TOP);
   let startY = 150;
   let spacing = 60;
+  let panelW = 360;
+  let panelH = 50;
 
   for (let i = 0; i < upgradeOptions.length; i++) {
     let option = upgradeOptions[i];
+    let panelX = width / 2 - panelW / 2;
+    let panelY = startY + i * spacing;
 
-    // Panel background
+    // Background panel
     fill(30, 150);
-    rect(width / 2 - 180, startY + i * spacing - 10, 360, 50, 12);
+    rect(panelX, panelY, panelW, panelH, 12);
 
-    // Text
-    fill(255);
+    // Check affordability
+    let affordable = score >= option.cost;
+    fill(affordable ? 255 : 150);
     textSize(20);
-    text(`${i + 1}. ${option.name}`, width / 2 - 160, startY + i * spacing);
-    textSize(16);
-    text(`Cost: ${option.cost}`, width / 2 + 100, startY + i * spacing);
+    text(`${i + 1}. ${option.name}`, panelX + 20, panelY + 5);
 
-    // If not enough score, gray it out
-    if (score < option.cost) {
-      fill(255, 80);
-      rect(width / 2 - 180, startY + i * spacing - 10, 360, 50, 12);
-      fill(200, 80);
-      text(`${i + 1}. ${option.name}`, width / 2 - 160, startY + i * spacing);
-      text(`Cost: ${option.cost}`, width / 2 + 100, startY + i * spacing);
-    }
+    // Show cost
+    textSize(16);
+    text(`Cost: ${option.cost}`, panelX + panelW - 100, panelY + 10);
+
+    // Show current value dynamically
+    textSize(14);
+    let current = getCurrentValue(option.name);
+    text(`Current: ${current}`, panelX + 20, panelY + 28);
   }
 }
+
+// Helper function to get current upgrade value
+function getCurrentValue(name) {
+  switch(name) {
+    case "Increase Max Health":
+      return player.maxHealth;
+    case "Increase Damage":
+      return player.bulletDamage;
+    case "Faster Fire Rate":
+      return player.fireRate + " ms"; // lower is better
+    case "Increase Speed":
+      return player.speed;
+    case "Heal":
+      return player.health + "/" + player.maxHealth;
+    case "Increase Magazine Size":
+      return player.magazineSize ? player.magazineSize : 30;
+    default:
+      return "-";
+  }
+}
+ 
 
 function keyPressed() {
   // --- SHOP TOGGLE ---
