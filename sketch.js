@@ -995,7 +995,7 @@ function resetGame() {
   shopOpen = false;
   isPaused = false;
   droneChoicePending = false;
-  Dronelimit = 200;
+  Dronelimit = 60;
   startGame = false; 
   }
 
