@@ -1,3 +1,5 @@
+let boss;
+let bossActive = false;
 let fadeAlpha = 175; // fully opaque at start
 let isStarting = false; 
 let player;
@@ -197,6 +199,7 @@ for (let i = enemies.length - 1; i >= 0; i--) {
     enemy.markedForRemoval = true;
   }
 }
+checkBossSpawn();
 
 
   // Health bar & Info Panel
@@ -248,7 +251,35 @@ for (let i = enemies.length - 1; i >= 0; i--) {
 
   // spawn enemies (difficulty scaling inside)
   spawnEnemies();
+  
+if (bossActive) {
+  boss.display();
+  boss.update(); 
+   boss.checkPlayerCollision(player);
+  // Check collisions with player bullets
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let b = bullets[i];
+    let bPos = b.position;
+if (bPos.x > boss.position.x && bPos.x < boss.position.x + boss.width &&
+    bPos.y > boss.position.y && bPos.y < boss.position.y + boss.height) {
+  boss.takeDamage(b.damage);
+  bullets.splice(i, 1);
+}
+      if (boss.health <= 0) {
+        bossActive = false;
+        score += 5000;
+      }
+    }
+  
+}
 
+
+}
+function checkBossSpawn() {
+  if (!bossActive && player.level % 10 === 0) { // example threshold
+    bossActive = true;
+    boss = new Boss(width / 2, 50);
+  }
 }
 
 
@@ -632,6 +663,72 @@ class Enemy {
   return false;
 }
 
+}
+class Boss {
+  constructor(x, y, w = 150, h = 80, health = 500, damage = 25) {
+    this.position = createVector(x, y);
+    this.width = w;
+    this.height = h;
+    this.maxHealth = health;
+    this.health = health;
+    this.damage = damage;
+  }
+
+  display() {
+    fill(255, 0, 0);
+    rect(this.position.x, this.position.y, this.width, this.height, 8);
+    
+    // Health bar
+    fill(0);
+    rect(this.position.x, this.position.y - 12, this.width, 6);
+    fill(0, 255, 0);
+    let healthWidth = map(this.health, 0, this.maxHealth, 0, this.width);
+    rect(this.position.x, this.position.y - 12, healthWidth, 6);
+  }
+
+  update() {
+    if (!player) return;
+    let angle = atan2(player.position.y - this.position.y, player.position.x - this.position.x);
+    this.velocity = createVector(cos(angle), sin(angle)).mult(this.speed);
+    this.position.add(this.velocity);
+  }
+
+  checkPlayerCollision(player) {
+    if (
+      player.position.x + player.size / 2 > this.position.x &&
+      player.position.x - player.size / 2 < this.position.x + this.width &&
+      player.position.y + player.size / 2 > this.position.y &&
+      player.position.y - player.size / 2 < this.position.y + this.height
+    ) {
+      player.takeDamage(this.damage);
+    }
+  }
+
+  checkBulletCollision(bullet) {
+    let b = bullet.position;
+    if (
+      b.x > this.position.x && b.x < this.position.x + this.width &&
+      b.y > this.position.y && b.y < this.position.y + this.height
+    ) {
+      this.takeDamage(bullet.damage);
+      return true; // bullet hit
+    }
+    return false; // no hit
+  }
+
+  takeDamage(amount) {
+    this.health -= amount;
+    if (this.health <= 0) {
+      this.health = 0;
+      bossActive = false; // boss defeated
+      score += 5000;
+      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 50);
+    }
+  }
+
+  isDead() {
+    return this.health <= 0;
+  }
 }
 
 
