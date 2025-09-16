@@ -20,19 +20,31 @@ let maxAmmo = 30;
 let isReloading = false;
 let reloadTime = 2000;  // 2 seconds to reload
 let reloadStart = 0;
+let dronesOwned=0;
 let upgradeOptions = [
   { name: "Increase Max Health", cost: 50, action: () => { player.maxHealth += 20; player.health = min(player.health, player.maxHealth); } },
   { name: "Increase Damage", cost: 50, action: () => { player.bulletDamage += 1; } },
   { name: "Faster Fire Rate", cost: 50, action: () => { player.fireRate = max(10, player.fireRate - 10); } },
   { name: "Increase Speed", cost: 50, action: () => { player.speed += 1; } },
   { name: "Heal", cost: 30, action: () => { player.health = min(player.maxHealth, player.health + 30); } },
+  
  { name: "Increase Magazine Size",
   cost: 100,action: () => {
   if (!player.magazineSize) player.magazineSize = 30;
   if (player.magazineSize < 300) {  
   player.magazineSize += 5;
     player.ammo = player.magazineSize;
-  }}}
+  }}},
+  {name: "Buy Drone",
+    cost: 100,
+    action: () => {
+      if (dronesOwned < Dronelimit) {
+        droneChoicePending = true;
+        score -= 50;     // subtract cost
+        dronesOwned += 1;
+      } else {
+        console.log("Drone limit reached!");
+ }}},
 ];
 
 function setup() {
@@ -164,6 +176,8 @@ if (isReloading) {
       enemyBullets.splice(i, 1);
     }
   }
+  
+score = max(0, score);
 
   
   // Enemies
@@ -468,9 +482,6 @@ class Player {
     // Weapon progression based on level increments
     if (this.level % 2 === 0) {
       this.weaponLevel++;
-    } else if (this.weaponLevel % 5 === 0) {
-      droneChoicePending = true;
-    }
 
     if (this.weaponLevel === 2) {
       this.bulletSpeed=7;
@@ -487,8 +498,7 @@ class Player {
       this.armorLevel = 3;
     }
   }
-}
-
+  }}
 // --- Particle class ---
 class Particle {
   constructor(x, y) {
@@ -1215,7 +1225,6 @@ function drawShop() {
     text(`Current: ${current}`, panelX + 20, panelY + 28);
   }
 }
-
 // Helper function to get current upgrade value
 function getCurrentValue(name) {
   switch(name) {
@@ -1231,13 +1240,24 @@ function getCurrentValue(name) {
       return player.health + "/" + player.maxHealth;
     case "Increase Magazine Size":
       return player.magazineSize ? player.magazineSize : 30;
+    case "Buy Drone":
+      return dronesOwned + "/" + Dronelimit; // show current drones and cap
     default:
       return "-";
   }
 }
+
  
 
 function keyPressed() {
+  
+  // --- DRONE CHOICE ---
+  if (droneChoicePending) {
+    if (key === "1") addDrone(new AceDrone(player, random(TWO_PI)));
+    else if (key === "2") addDrone(new LaserDrone(player, random(TWO_PI)));
+    else if (key === "3") addDrone(new AOEDrone(player, random(TWO_PI)));
+    return;
+  }
   // --- SHOP TOGGLE ---
   if (key === "p" || key === "P") {
     shopOpen = !shopOpen;
@@ -1269,13 +1289,6 @@ function keyPressed() {
     return;
   }
 
-  // --- DRONE CHOICE ---
-  if (droneChoicePending) {
-    if (key === "1") addDrone(new AceDrone(player, random(TWO_PI)));
-    else if (key === "2") addDrone(new LaserDrone(player, random(TWO_PI)));
-    else if (key === "3") addDrone(new AOEDrone(player, random(TWO_PI)));
-    return;
-  }
 
   // --- PAUSE ---
   if (keyCode === ESCAPE) {
