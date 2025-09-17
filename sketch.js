@@ -17,8 +17,7 @@ let Dronelimit = 60;
 let startGame = false; 
 let particles = [];
 let shopOpen = false;
-let ammo = 30;          // bullets per magazine
-let maxAmmo = 30;
+let ammo = 30; // bullets per magazine
 let isReloading = false;
 let reloadTime = 2000;  // 2 seconds to reload
 let reloadStart = 0;
@@ -153,7 +152,7 @@ if (droneChoicePending) {
 
 if (isReloading) {
   if (millis() - reloadStart >= reloadTime) {
-    ammo = maxAmmo;
+    ammo = player.magazineSize;
     isReloading = false;
   }
 }
@@ -383,6 +382,7 @@ class Player {
     this.drones = [];
     this.velocity = createVector(0, 0);
     this.didShoot = false;
+    this.magazineSize = 30;
   }
   takeDamage(amount) {
     let reduced = amount;
@@ -672,6 +672,8 @@ class Boss {
     this.maxHealth = health;
     this.health = health;
     this.damage = damage;
+    this.speed = speed;  // ✅ Fix added
+    this.velocity = createVector(0, 0);
   }
 
   display() {
@@ -722,7 +724,7 @@ class Boss {
       this.health = 0;
       bossActive = false; // boss defeated
       score += 5000;
-      Player.xp += 5000;
+      player.increaseXP(5000);
       spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 50);
     }
   }
