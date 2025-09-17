@@ -1268,6 +1268,7 @@ class AOEExplosion {
     this.duration = 300;
     this.hasDamaged = false;
   }
+  
   update() {
     if (!this.hasDamaged) {
       // damage all valid enemies inside radius once
@@ -1283,6 +1284,7 @@ class AOEExplosion {
       this.hasDamaged = true;
     }
   }
+  
   display() {
     let elapsed = millis() - this.createdAt;
     let alpha = map(elapsed, 0, this.duration, 150, 0);
@@ -1295,6 +1297,7 @@ class AOEExplosion {
     return millis() - this.createdAt > this.duration;
   }
 }
+
 
 function drawShop() {
   background(50, 100, 150, 220);
@@ -1360,7 +1363,6 @@ function getCurrentValue(name) {
   }
 }
 
- 
 
 function keyPressed() {
   
@@ -1429,7 +1431,6 @@ function drawHelmet(style = "basic") {
   ellipse(0, 0, helmetSize, helmetSize);
   pop();
 }
-
 
 // Track last flash timing
 let lastFlashTime = 0;
@@ -1554,6 +1555,7 @@ function drawTitleScreen() {
   fill(255, alpha);
   text("Press SPACE to Start", width / 2, height - 100);
 }
+
 function drawGameOverScreen() {
   // dark overlay
   fill(0, 180);
@@ -1585,6 +1587,7 @@ function drawGameOverScreen() {
     text("Press R to Restart", width / 2, height / 2 + 120);
   }
 }
+
 
 function drawAmmo() {
   let x = 20;
