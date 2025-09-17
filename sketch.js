@@ -34,7 +34,7 @@ let upgradeOptions = [
   if (!player.magazineSize) player.magazineSize = 30;
   if (player.magazineSize < 300) {  
   player.magazineSize += 5;
-    player.ammo = player.magazineSize;
+  player.ammo = player.magazineSize;
   }}},
   {name: "Buy Drone",
     cost: 100,
@@ -180,7 +180,7 @@ if (isReloading) {
   
 score = max(0, score);
 
-  
+  drawAmmoBar();
   // Enemies
 for (let i = enemies.length - 1; i >= 0; i--) {
   let enemy = enemies[i];
@@ -334,7 +334,6 @@ function displayLevelInfo() {
   let y = panelY + 35, dy = 20;
   text("🧬 Level:     " + player.level, panelX + 16, y); y += dy;
   text("⭐ XP:        " + player.xp, panelX + 16, y); y += dy;
-  text("🔫 Weapon:    " + player.weaponLevel, panelX + 16, y); y += dy;
   text("💵 Money:     " + score, panelX + 16, y); y += dy;
   text("🩸 Health:    " + player.health + "/" + player.maxHealth, panelX + 16, y);
 }
@@ -343,7 +342,7 @@ function displayReloadBar() {
   let barWidth = 200;
   let barHeight = 10;
   let x = 20;
-  let y = height - barHeight - 60;
+  let y = height - barHeight - 75;
   let progress = (millis() - reloadStart) / reloadTime;
   progress = constrain(progress, 0, 1);
   
@@ -367,7 +366,6 @@ class Player {
     this.health = 100;
     this.xp = 0;
     this.level = 1;
-    this.weaponLevel = 1;
     this.bulletSpeed = bulletSpeed;
     this.bulletDamage = 1;
     this.fireRate = 200;
@@ -510,25 +508,20 @@ class Player {
 
   
   upgradeWeapon() {
-    // Weapon progression based on level increments
-    if (this.level % 2 === 0) {
-      this.weaponLevel++;
 
-    if (this.weaponLevel === 2) {
+    if (this.level === 4) {
       this.bulletSpeed=7;
-    } else if (this.weaponLevel === 3) {
+    } else if (this.level === 6) {
       this.multiShotActive = true;
       this.armorLevel = 1;
     } 
-     else if (this.weaponLevel === 5) {
-      this.hasDrone = true;
-    } else if (this.weaponLevel === 6) {
+    else if (this.level === 10) {
       this.armorLevel = 2;
        this.bulletSpeed=10;
-    } else if (this.weaponLevel === 10) {
+    } else if (this.level === 15) {
       this.armorLevel = 3;
     }
-  }
+  
   }}
 // --- Particle class ---
 class Particle {
@@ -665,7 +658,7 @@ class Enemy {
 
 }
 class Boss {
-  constructor(x, y, w = 150, h = 80, health = 500, damage = 25) {
+  constructor(x, y, w = 150, h = 80, health = 500, damage = 25, speed = 1.5) {
     this.position = createVector(x, y);
     this.width = w;
     this.height = h;
@@ -1033,6 +1026,25 @@ class EnemyBullet {
   }
 }
 
+function drawAmmoBar() {
+  let barWidth = 200;
+  let barHeight = 12;
+  let x = 20;
+  let y = height - 70; // higher up so health goes below it
+
+  noStroke();
+  fill(0, 60);
+  rect(x, y, barWidth, barHeight, 8);
+
+  let ammoPercent = ammo / player.magazineSize;
+  fill(255, 200, 50);
+  rect(x, y, barWidth * ammoPercent, barHeight, 8);
+
+  fill(255);
+  textSize(12);
+  textAlign(LEFT, CENTER);
+  text("Ammo: " + ammo + " / " + player.magazineSize, x + 5 , y + barHeight / 2);
+}
 function displayHealthBar() {
   let barWidth = 220;
   let barHeight = 22;
@@ -1573,12 +1585,13 @@ function drawGameOverScreen() {
     text("Press R to Restart", width / 2, height / 2 + 120);
   }
 }
+
 function drawAmmo() {
+  let x = 20;
+  let y = height - 90; // higher up so health goes below it
   fill(255);
   textSize(16);
   if (isReloading) {
-    text("Reloading...", 20, 20);
-  } else {
-    text("Ammo: " + ammo + " / " + maxAmmo, 20, 20);
-  }
+    text("Reloading...", x + 5, y + barHeight / 2);
+  } 
 }
