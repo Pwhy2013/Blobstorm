@@ -719,7 +719,7 @@ class Boss {
       bossActive = false; // boss defeated
       score += 5000;
       player.increaseXP(5000);
-      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 200);
+      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 1000);
     }
   }
 
