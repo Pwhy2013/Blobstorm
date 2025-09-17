@@ -657,8 +657,8 @@ class Enemy {
 }
 
 }
-class Boss {
-  constructor(x, y, w = 150, h = 80, health = 500, damage = 25, speed = 1.5) {
+class Boss extends Enemy{
+  constructor(x, y, w = 150, h = 80, health = 1500, damage = 1000000000000000000000000000000, speed = 1) {
     this.position = createVector(x, y);
     this.width = w;
     this.height = h;
@@ -719,7 +719,7 @@ class Boss {
       bossActive = false; // boss defeated
       score += 5000;
       player.increaseXP(5000);
-      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 1000);
+      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 10000);
     }
   }
 
