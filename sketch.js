@@ -13,7 +13,7 @@ let spawnInterval = 120;
 let isPaused = false;
 let aoeExplosions = [];
 let droneChoicePending = false;
-let Dronelimit = 60;
+let Dronelimit = 30;
 let startGame = false; 
 let particles = [];
 let shopOpen = false;
@@ -41,7 +41,7 @@ let upgradeOptions = [
     action: () => {
       if (dronesOwned < Dronelimit) {
         droneChoicePending = true;
-        score -= 50;     // subtract cost
+        score -= 100;     // subtract cost
         dronesOwned += 1;
       } else {
         console.log("Drone limit reached!");
@@ -991,7 +991,7 @@ function resetGame() {
   shopOpen = false;
   isPaused = false;
   droneChoicePending = false;
-  Dronelimit = 60;
+  Dronelimit = 30;
   startGame = false; 
   }
 
@@ -1184,9 +1184,9 @@ function addDrone(newDrone) {
 class AceDrone extends Drone {
   constructor(player, angleOffset = 0) {
     super(player, angleOffset);
-    this.fireRate = 100;
+    this.fireRate = 90;
     this.bulletSpeed = 10;
-    this.bulletDamage = 0.5;
+    this.bulletDamage = 0.25;
   }
 }
 
@@ -1194,7 +1194,7 @@ class LaserDrone extends Drone {
   constructor(player, angleOffset = 0) {
     super(player, angleOffset);
     this.beamLength = 2000000;
-    this.damagePerSecond = 5;
+    this.damagePerSecond = 3;
   }
   update() {
     // frame-rate independent rotation
@@ -1230,7 +1230,7 @@ class AOEDrone extends Drone {
     this.fireRate = 1000;
     this.isAOE = true;
     this.radius = 60;
-    this.damage = 3;
+    this.damage = 15;
     this.lastShotTime = 0;
   }
   update() {
