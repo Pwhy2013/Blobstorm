@@ -720,12 +720,13 @@ class Boss {
 
   takeDamage(amount) {
     this.health -= amount;
+    spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 70);
     if (this.health <= 0) {
       this.health = 0;
       bossActive = false; // boss defeated
       score += 5000;
       player.increaseXP(5000);
-      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 50);
+      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 200);
     }
   }
 
