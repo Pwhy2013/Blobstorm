@@ -274,9 +274,10 @@ if (bPos.x > boss.position.x && bPos.x < boss.position.x + boss.width &&
 
 }
 function checkBossSpawn() {
-  if (!bossActive && player.level % 10 === 0) { // example threshold
+  if (!bossActive && player.level % 10 === 0 && player.bossSpawned === false) { // example threshold
     bossActive = true;
     boss = new Boss(width / 2, 50);
+    player.bossSpawned = true;
   }
 }
 
@@ -381,6 +382,7 @@ class Player {
     this.didShoot = false;
     this.magazineSize = 30;
     this.ammo = 30;
+    this.bossSpawned = false;
   }
   takeDamage(amount) {
     let reduced = amount;
@@ -503,6 +505,7 @@ class Player {
     this.upgradeWeapon();
     this.health = this.maxHealth;
     xpNeeded = this.level * 100; // ✅ recalc for next level
+    this.bossSpawned = false;
   }
 }
 
@@ -713,13 +716,13 @@ class Boss extends Enemy{
 
   takeDamage(amount) {
     this.health -= amount;
-    spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 70);
+    spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 30);
     if (this.health <= 0) {
       this.health = 0;
       bossActive = false; // boss defeated
       score += 5000;
       player.increaseXP(5000);
-      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 10000);
+      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 300);
     }
   }
 
@@ -1158,20 +1161,40 @@ class Drone {
     pop();
   }
   getClosestTarget() {
-    let closest = null;
-    let minDist = Infinity;
-    for (let enemy of enemies) {
-      if (!enemy || enemy.markedForRemoval) continue;
-      let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
-      if (d < minDist) {
-        closest = enemy;
-        minDist = d;
-      }
-    }
-    return closest;
-  }
-}
+  if (bossActive && boss && boss.health > 0) { return boss; }
+  let closest = null;
+  let minDist = Infinity;
 
+  // 🔹 Check all enemies first
+  for (let enemy of enemies) {
+    if (!enemy || enemy.markedForRemoval) continue;
+    let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
+    if (d < minDist) {
+      closest = enemy;
+      minDist = d;
+    }
+  }
+
+  // 🔹 Check boss if active
+  if (bossActive && boss && !boss.isDead) {
+    let bossCenterX = boss.position.x + boss.width / 2;
+    let bossCenterY = boss.position.y + boss.height / 2;
+    let d = dist(this.position.x, this.position.y, bossCenterX, bossCenterY);
+
+    if (d < minDist) {
+      // Fake enemy object so drones can use the same logic
+      closest = { 
+        position: createVector(bossCenterX, bossCenterY), 
+        width: boss.width, 
+        height: boss.height 
+      };
+      minDist = d;
+    }
+  }
+
+  return closest;
+}
+}
 function addDrone(newDrone) {
   if (!player) return;
   if (player.drones.length >= Dronelimit) {
