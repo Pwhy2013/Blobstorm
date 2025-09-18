@@ -1161,7 +1161,6 @@ class Drone {
     pop();
   }
   getClosestTarget() {
-  if (bossActive && boss && boss.health > 0) { return boss; }
   let closest = null;
   let minDist = Infinity;
 
@@ -1175,22 +1174,6 @@ class Drone {
     }
   }
 
-  // 🔹 Check boss if active
-  if (bossActive && boss && !boss.isDead) {
-    let bossCenterX = boss.position.x + boss.width / 2;
-    let bossCenterY = boss.position.y + boss.height / 2;
-    let d = dist(this.position.x, this.position.y, bossCenterX, bossCenterY);
-
-    if (d < minDist) {
-      // Fake enemy object so drones can use the same logic
-      closest = { 
-        position: createVector(bossCenterX, bossCenterY), 
-        width: boss.width, 
-        height: boss.height 
-      };
-      minDist = d;
-    }
-  }
 
   return closest;
 }
