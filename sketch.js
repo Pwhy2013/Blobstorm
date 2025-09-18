@@ -659,7 +659,6 @@ class Enemy {
 }
 class Boss extends Enemy{
   constructor(x, y, w = 150, h = 80, health = 1500, damage = 200, speed = 1) {
-    this.position = createVector(x, y);
     super(x, y, speed);
     this.width = w;
     this.height = h;
