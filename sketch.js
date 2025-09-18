@@ -17,7 +17,6 @@ let Dronelimit = 30;
 let startGame = false; 
 let particles = [];
 let shopOpen = false;
-let ammo = 30; // bullets per magazine
 let isReloading = false;
 let reloadTime = 2000;  // 2 seconds to reload
 let reloadStart = 0;
@@ -152,7 +151,7 @@ if (droneChoicePending) {
 
 if (isReloading) {
   if (millis() - reloadStart >= reloadTime) {
-    ammo = player.magazineSize;
+   player.ammo = player.magazineSize;
     isReloading = false;
   }
 }
@@ -381,6 +380,7 @@ class Player {
     this.velocity = createVector(0, 0);
     this.didShoot = false;
     this.magazineSize = 30;
+    this.ammo = 30;
   }
   takeDamage(amount) {
     let reduced = amount;
@@ -441,12 +441,12 @@ class Player {
     pop();
   }
   shoot() {
-  if (isReloading || ammo <= 0) {
+  if (isReloading || this.ammo <= 0) {
     this.didShoot = false;
     return;
   }
 
-  ammo--; // consume one bullet
+  this.ammo--; // consume one bullet
   triggerFlash();
 
   let angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
@@ -467,7 +467,7 @@ class Player {
   this.didShoot = true;
 
   // Handle reload
-  if (ammo <= 0) {
+  if (this.ammo <= 0) {
     isReloading = true;
     reloadStart = millis();
   }
@@ -658,8 +658,9 @@ class Enemy {
 
 }
 class Boss extends Enemy{
-  constructor(x, y, w = 150, h = 80, health = 1500, damage = 1000000000000000000000000000000, speed = 1) {
+  constructor(x, y, w = 150, h = 80, health = 1500, damage = 200, speed = 1) {
     this.position = createVector(x, y);
+    super(x, y, speed);
     this.width = w;
     this.height = h;
     this.maxHealth = health;
@@ -1036,14 +1037,14 @@ function drawAmmoBar() {
   fill(0, 60);
   rect(x, y, barWidth, barHeight, 8);
 
-  let ammoPercent = ammo / player.magazineSize;
+  let ammoPercent = player.ammo / player.magazineSize;
   fill(255, 200, 50);
   rect(x, y, barWidth * ammoPercent, barHeight, 8);
 
   fill(255);
   textSize(12);
   textAlign(LEFT, CENTER);
-  text("Ammo: " + ammo + " / " + player.magazineSize, x + 5 , y + barHeight / 2);
+  text("Ammo: " + player.ammo + " / " + player.magazineSize, x + 5 , y + barHeight / 2);
 }
 function displayHealthBar() {
   let barWidth = 220;
