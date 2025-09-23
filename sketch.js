@@ -26,7 +26,7 @@ let upgradeOptions = [
   { name: "Increase Damage", cost: 50, action: () => { player.bulletDamage += 1; } },
   { name: "Faster Fire Rate", cost: 50, action: () => { player.fireRate = max(10, player.fireRate - 10); } },
   { name: "Increase Speed", cost: 50, action: () => { player.speed += 1; } },
-  { name: "Heal", cost: 30, action: () => { player.health = min(player.maxHealth, player.health + 30); } },
+  { name: "Heal", cost: 75, action: () => { player.health = min(player.maxHealth, player.health === player.maxHealth); } },
   
  { name: "Increase Magazine Size",
   cost: 100,action: () => {
@@ -661,7 +661,7 @@ class Enemy {
 
 }
 class Boss extends Enemy{
-  constructor(x, y, w = 150, h = 80, health = 1500, damage = 200, speed = 1) {
+  constructor(x, y, w = 150, h = 80, health = 1500*player.level , damage = 200, speed = 1) {
     super(x, y, speed);
     this.width = w;
     this.height = h;
