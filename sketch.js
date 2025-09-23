@@ -661,7 +661,7 @@ class Enemy {
 
 }
 class Boss extends Enemy{
-  constructor(x, y, w = 150, h = 80, health = 150*player.level , damage = 200, speed = 1) {
+  constructor(x, y, w = 150, h = 80, health = 500*player.level , damage = 200, speed = 1) {
     super(x, y, speed);
     this.width = w;
     this.height = h;
@@ -737,7 +737,7 @@ class NormalEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed);
     this.size = 35;
-    this.health = 5;
+    this.health = 5*player.level;
     this.damage = 20;
     this.xpValue = 10;
     this.moneyValue = 15;
@@ -770,7 +770,7 @@ class FastEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed * 2);
     this.size = 30;
-    this.health = 3;
+    this.health = 3*player.level;
     this.rotation = random(TWO_PI);
     this.xpValue = 15;
     this.moneyValue = 5;
@@ -799,7 +799,7 @@ class ZigZagEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed);
     this.size = 32;
-    this.health = 8;
+    this.health = 8*player.level;
     this.angleOffset = random(TWO_PI);
     this.zigSpeed = 0.04;
     this.damage = 20;
@@ -832,7 +832,7 @@ class TankEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed * 0.5);
     this.size = 50;
-    this.health = 60;
+    this.health = 10*player.level^2;
     this.damage = 50;  
       this.xpValue = 200;
     this.moneyValue = 150;
@@ -865,7 +865,7 @@ class ShootingEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed);
     this.size = 40;
-    this.health = 8;
+    this.health = 8*player.level;
 
     this.orbitRadius = random(80, 120);
     this.orbitAngle = 0;
