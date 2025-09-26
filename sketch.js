@@ -23,7 +23,12 @@ let reloadStart = 0;
 let dronesOwned=0;
 let upgradeOptions = [
   { name: "Increase Max Health", cost: 50, action: () => { player.maxHealth += 20; player.health = min(player.health, player.maxHealth); } },
-  { name: "Increase Damage", cost: 50, action: () => { player.bulletDamage += 1; } },
+  { name: "Increase Damage", cost: 50, action: () => { 
+    if (player.bulletDamage<25) {
+      player.bulletDamage += 1; }
+  else {
+    player.bulletDamage = 25;}
+  }},
   { name: "Faster Fire Rate", cost: 50, action: () => { player.fireRate = max(10, player.fireRate - 10); } },
   { name: "Increase Speed", cost: 50, action: () => { player.speed += 1; } },
   { name: "Heal", cost: 75, action: () => { player.health = min(player.maxHealth, player.health += 30); } },
@@ -1353,7 +1358,7 @@ function getCurrentValue(name) {
     case "Increase Max Health":
       return player.maxHealth;
     case "Increase Damage":
-      return player.bulletDamage;
+      return player.bulletDamage + "/25";
     case "Faster Fire Rate":
       return player.fireRate + " ms"; // lower is better
     case "Increase Speed":
