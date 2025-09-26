@@ -506,7 +506,6 @@ class Player {
     this.level++;
     this.xp -= xpNeeded;  // ✅ keep leftover XP
     this.upgradeWeapon();
-    this.health = this.maxHealth;
     xpNeeded = this.level * 100; // ✅ recalc for next level
     this.bossSpawned = false;
   }
