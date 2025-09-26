@@ -26,9 +26,8 @@ let upgradeOptions = [
   { name: "Increase Damage", cost: 50, action: () => { player.bulletDamage += 1; } },
   { name: "Faster Fire Rate", cost: 50, action: () => { player.fireRate = max(10, player.fireRate - 10); } },
   { name: "Increase Speed", cost: 50, action: () => { player.speed += 1; } },
-  { name: "Heal", cost: 75, action: () => { player.health = min(player.maxHealth, player.health === player.maxHealth); } },
-  
- { name: "Increase Magazine Size",
+  { name: "Heal", cost: 75, action: () => { player.health = min(player.maxHealth, player.health += 30); } },
+  { name: "Increase Magazine Size",
   cost: 100,action: () => {
   if (!player.magazineSize) player.magazineSize = 30;
   if (player.magazineSize < 300) {  
@@ -197,9 +196,8 @@ for (let i = enemies.length - 1; i >= 0; i--) {
     enemy.markedForRemoval = true;
   }
 }
-checkBossSpawn();
-
-
+  
+  checkBossSpawn();
   // Health bar & Info Panel
   displayHealthBar();
   displayLevelInfo();
@@ -738,7 +736,7 @@ class NormalEnemy extends Enemy {
     super(x, y, speed);
     this.size = 35;
     this.health = 5*player.level^2;
-    this.damage = 20;
+    this.damage = this.heath;
     this.xpValue = 10;
     this.moneyValue = 15;
   }
@@ -774,6 +772,7 @@ class FastEnemy extends Enemy {
     this.rotation = random(TWO_PI);
     this.xpValue = 15;
     this.moneyValue = 5;
+    this.damage = this.health;
   }
 
   display() {
@@ -802,7 +801,7 @@ class ZigZagEnemy extends Enemy {
     this.health = 8*player.level^2;
     this.angleOffset = random(TWO_PI);
     this.zigSpeed = 0.04;
-    this.damage = 20;
+    this.damage = this.health;
     this.xpValue = 20;
     this.moneyValue = 20;
   }
@@ -833,7 +832,7 @@ class TankEnemy extends Enemy {
     super(x, y, speed * 0.5);
     this.size = 50;
     this.health = 10*player.level^2;
-    this.damage = 50;  
+    this.damage = this.health/2;  
       this.xpValue = 200;
     this.moneyValue = 150;
   }
@@ -866,7 +865,7 @@ class ShootingEnemy extends Enemy {
     super(x, y, speed);
     this.size = 40;
     this.health = 8*player.level^2;
-
+    this.health = this.health;
     this.orbitRadius = random(80, 120);
     this.orbitAngle = 0;
     this.orbitSpeed = 0.02; // slower orbit
@@ -996,6 +995,7 @@ function resetGame() {
   droneChoicePending = false;
   Dronelimit = 30;
   startGame = false; 
+  boss = [];
   }
 
 
