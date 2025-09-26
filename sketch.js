@@ -22,7 +22,13 @@ let reloadTime = 2000;  // 2 seconds to reload
 let reloadStart = 0;
 let dronesOwned=0;
 let upgradeOptions = [
-  { name: "Increase Max Health", cost: 50, action: () => { player.maxHealth += 20; player.health = min(player.health, player.maxHealth); } },
+  { name: "Increase Max Health", cost: 50, action: () => {
+    if (player.maxHealth<2000){
+        player.maxHealth += 20; player.health = min(player.health, player.maxHealth); }
+    else {
+      return;
+    }
+  }},
   { name: "Increase Damage", cost: 50, action: () => { 
     if (player.bulletDamage<25) {
       player.bulletDamage += 1; }
@@ -30,8 +36,15 @@ let upgradeOptions = [
     player.bulletDamage = 25;}
   }},
   { name: "Faster Fire Rate", cost: 50, action: () => { player.fireRate = max(10, player.fireRate - 10); } },
-  { name: "Increase Speed", cost: 50, action: () => { player.speed += 1; } },
-  { name: "Heal", cost: 75, action: () => { player.health = min(player.maxHealth, player.health += 30); } },
+  { name: "Increase Speed", cost: 50, action: () => {
+    if (player.speed<20){
+      player.speed += 1; } 
+    else {
+      return;
+    }
+  }
+  },
+  { name: "Heal", cost: 150, action: () => { player.health = min(player.maxHealth, player.health = player.maxHealth); } },
   { name: "Increase Magazine Size",
   cost: 100,action: () => {
   if (!player.magazineSize) player.magazineSize = 30;
@@ -1230,6 +1243,8 @@ class LaserDrone extends Drone {
       strokeWeight(2);
       line(this.position.x, this.position.y, target.position.x, target.position.y);
       noStroke();
+      fill(144, 238, 144,120);
+      ellipse(this.position.x, this.position.y, this.size + 10);
     }
   }
 }
