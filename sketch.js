@@ -1394,12 +1394,16 @@ function keyPressed() {
   // --- SHOP PURCHASES ---
   if (shopOpen) {
     let choice = parseInt(key);
+    if (droneChoicePending === true){
+      return;
+    }
+      else{
     if (!isNaN(choice) && choice >= 1 && choice <= upgradeOptions.length) {
       let option = upgradeOptions[choice - 1];
       if (score >= option.cost) {
         score -= option.cost;
         option.action(); // apply upgrade
-      }
+      }}
     }
     return; // don’t trigger other actions when shop is open
   }
