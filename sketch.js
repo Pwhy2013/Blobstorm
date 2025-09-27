@@ -429,7 +429,6 @@ class Player {
     const shooting = mouseIsPressed || keyIsDown(32);
     const armored = this.level >= 3;
     for (let drone of this.drones) if (drone) drone.display();
-    for (let slash of this.slashes) slash.display();
     let helmetStyle = "basic";
     if (this.level >= 5) helmetStyle = "military";
     if (this.level >= 10) helmetStyle = "riot";
