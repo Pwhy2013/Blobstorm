@@ -1,9 +1,9 @@
-# Blobpocalypse! 🎮
+# Blobstorm! 🎮
 
 A **free browser arena shooter** built with [p5.js](https://p5js.org/).
 Level up, fight bosses, unlock drones, and survive as long as you can!
 
-👉 **Play now:** [Blobpocalypse on GitHub Pages](https://pwhy2013.github.io/Blobpocalypse/)
+👉 **Play now:** [Blobstorm on GitHub Pages](https://pwhy2013.github.io/Blobstorm/)
 
 ---
 
