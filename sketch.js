@@ -24,7 +24,7 @@ let dronesOwned=0;
 let upgradeOptions = [
   { name: "Increase Max Health", cost: 50, action: () => {
     if (player.maxHealth<2000){
-        player.maxHealth += 20; player.health = min(player.health, player.maxHealth); }
+        player.maxHealth += 25; player.health = player.maxHealth; }
     else {
       return;
     }
@@ -44,7 +44,7 @@ let upgradeOptions = [
     }
   }
   },
-  { name: "Heal", cost: 150, action: () => { player.health = min(player.maxHealth, player.health = player.maxHealth); } },
+  { name: "Heal", cost: 150, action: () => { player.health = player.maxHealth; } },
   { name: "Increase Magazine Size",
   cost: 100,action: () => {
   if (!player.magazineSize) player.magazineSize = 30;
@@ -676,7 +676,7 @@ class Enemy {
 
 }
 class Boss extends Enemy{
-  constructor(x, y, w = 150, h = 80, health = 50*player.level^2 , damage = 200, speed = 1) {
+  constructor(x, y, w = 150, h = 80,  health = 50 * (player.level ** 2) , damage = 200, speed = 1) {
     super(x, y, speed);
     this.width = w;
     this.height = h;
@@ -752,8 +752,8 @@ class NormalEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed);
     this.size = 35;
-    this.health = 5*player.level^2;
-    this.damage = this.heath;
+    this.health = this.health = 5 * (player.level ** 2);
+    this.damage = this.health;
     this.xpValue = 10;
     this.moneyValue = 15;
   }
@@ -785,7 +785,7 @@ class FastEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed * 2);
     this.size = 30;
-    this.health = 3*player.level^2;
+    this.health = 3 * (player.level ** 2);
     this.rotation = random(TWO_PI);
     this.xpValue = 15;
     this.moneyValue = 5;
@@ -815,7 +815,7 @@ class ZigZagEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed);
     this.size = 32;
-    this.health = 8*player.level^2;
+    this.health = 4 * (player.level ** 2);
     this.angleOffset = random(TWO_PI);
     this.zigSpeed = 0.04;
     this.damage = this.health;
@@ -848,7 +848,7 @@ class TankEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed * 0.5);
     this.size = 50;
-    this.health = 10*player.level^2;
+    this.health = 10 * (player.level ** 2);
     this.damage = this.health/2;  
       this.xpValue = 200;
     this.moneyValue = 150;
@@ -881,8 +881,8 @@ class ShootingEnemy extends Enemy {
   constructor(x, y, speed) {
     super(x, y, speed);
     this.size = 40;
-    this.health = 8*player.level^2;
-    this.health = this.health;
+    this.health = 8 * (player.level ** 2);
+    this.damage = this.health;
     this.orbitRadius = random(80, 120);
     this.orbitAngle = 0;
     this.orbitSpeed = 0.02; // slower orbit
