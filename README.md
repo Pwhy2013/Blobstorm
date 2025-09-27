@@ -37,9 +37,9 @@ Level up, fight bosses, unlock drones, and survive as long as you can!
 
 ## 📸 Screenshots
 
-*(Add screenshots of your game here — makes the repo look much better!)*
-Example:
-![Gameplay Screenshot](preview.png)
+<img width="1380" height="711" alt="image" src="https://github.com/user-attachments/assets/1015a604-8f64-43d5-bae3-37724188f4eb" />
+<img width="1899" height="827" alt="image" src="https://github.com/user-attachments/assets/e119a737-65fb-484a-a9a4-bb17c66d982f" />
+
 
 ---
 
