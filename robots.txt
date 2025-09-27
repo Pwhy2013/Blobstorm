@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pwhy2013.github.io/Game/sitemap.xml
