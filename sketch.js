@@ -1527,7 +1527,6 @@ function drawTitleScreen() {
   text("🕹️ Controls:", bx, by); by += 28;
   text("WASD - Move", bx, by); by += 22;
   text("Mouse / left click - Shoot", bx, by); by += 22;
-  text("E - Melee Attack", bx, by); by += 22;
   text("ESC - Pause / P - Shop", bx, by);
 
   // --- Start Prompt ---
