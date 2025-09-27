@@ -387,10 +387,6 @@ class Player {
     this.fireRate = 200;
     this.lastShotTime = 0;
     this.multiShotActive = false;
-    this.meleeDamage = 20;
-    this.meleeCooldown = 1000;
-    this.lastMeleeTime = 0;
-    this.slashes = [];
     this.armorLevel = 0;
     this.hasDrone = false;
     this.drones = [];
@@ -426,15 +422,6 @@ class Player {
     if (millis() - this.lastShotTime > this.fireRate && (mouseIsPressed || keyIsDown(32))) {
       this.shoot();
       this.lastShotTime = millis();
-    }
-    if (millis() - this.lastMeleeTime > this.meleeCooldown && keyIsDown(69)) {
-      this.meleeAttack();
-      this.lastMeleeTime = millis();
-    }
-    for (let i = this.slashes.length - 1; i >= 0; i--) {
-      if (this.slashes[i].update()) {
-        this.slashes.splice(i, 1);
-      }
     }
   }
   display() {
@@ -491,17 +478,6 @@ class Player {
   }
 }
 
-  meleeAttack() {
-    let angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
-    this.slashes.push(new Slash(this.position.x, this.position.y, angle));
-    for (let enemy of enemies) {
-      if (!enemy || enemy.markedForRemoval) continue;
-      let d = dist(this.position.x, this.position.y, enemy.position.x, enemy.position.y);
-      if (d < 75) {
-        enemy.takeDamage(this.meleeDamage);
-      }
-    }
-  }
   activateMultiShot() {
     this.multiShotActive = true;
   }
@@ -1093,29 +1069,6 @@ function displayHealthBar() {
   textAlign(CENTER, CENTER);
   textSize(16);
   text(`Health: ${Math.round(player.health)} / ${player.maxHealth}`, x + barWidth / 2, y + barHeight / 2);
-}
-
-class Slash {
-  constructor(x, y, angle) {
-    this.x = x;
-    this.y = y;
-    this.angle = angle;
-    this.size = 70;
-    this.duration = 200;
-    this.createdAt = millis();
-  }
-  update() {
-    return millis() - this.createdAt > this.duration;
-  }
-  display() {
-    push();
-    translate(this.x, this.y);
-    rotate(this.angle);
-    fill(255, 255, 0, 150);
-    noStroke();
-    arc(0, 0, this.size, this.size, -PI / 4, PI / 4, PIE);
-    pop();
-  }
 }
 
 
