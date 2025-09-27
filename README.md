@@ -1,4 +1,6 @@
 # Blobstorm! 🎮
+!!disclaimer!!
+Very hard, please do NOT crash out.
 
 A **free browser arena shooter** built with [p5.js](https://p5js.org/).
 Level up, fight bosses, unlock drones, and survive as long as you can!
