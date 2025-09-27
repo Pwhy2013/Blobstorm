@@ -1,9 +1,9 @@
-# Blob Game! 🎮
+# Blobpocalypse! 🎮
 
 A **free browser arena shooter** built with [p5.js](https://p5js.org/).
 Level up, fight bosses, unlock drones, and survive as long as you can!
 
-👉 **Play now:** [Blob Game on GitHub Pages](https://pwhy2013.github.io/Game/)
+👉 **Play now:** [Blobpocalypse on GitHub Pages](https://pwhy2013.github.io/Blobpocalypse/)
 
 ---
 
@@ -22,7 +22,6 @@ Level up, fight bosses, unlock drones, and survive as long as you can!
 * **WASD / Arrow Keys** – Move
 * **Mouse** – Aim
 * **Click** – Shoot
-* **R** – Reload (if added)
 * Defeat enemies to gain XP, upgrade, and survive waves
 
 ---
