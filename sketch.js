@@ -24,7 +24,7 @@ let dronesOwned=0;
 let upgradeOptions = [
   { name: "Increase Max Health", cost: 50, action: () => {
     if (player.maxHealth<2000){
-        player.maxHealth += 25; player.health = player.maxHealth; }
+        player.maxHealth += 25;}
     else {
       return;
     }
@@ -44,9 +44,8 @@ let upgradeOptions = [
     }
   }
   },
-  { name: "Heal", cost: 150, action: () => { player.health = player.maxHealth; } },
-  { name: "Increase Magazine Size",
-  cost: 100,action: () => {
+  { name: "Heal", cost: 100, action: () => { player.health = player.maxHealth; } },
+  { name: "Increase Magazine Size",cost: 50,action: () => {
   if (!player.magazineSize) player.magazineSize = 30;
   if (player.magazineSize < 300) {  
   player.magazineSize += 5;
