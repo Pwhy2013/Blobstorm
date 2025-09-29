@@ -988,6 +988,23 @@ function resetGame() {
   Dronelimit = 30;
   startGame = false; 
   boss = [];
+  player.position = createVector(width / 2, height / 2);
+  player.size = 20;
+  player.speed = 5;
+  player.maxHealth = 100;
+  player.health = 100;
+  player.xp = 0;
+  player.level = 1;
+  player.bulletSpeed = bulletSpeed;
+  player.bulletDamage = 1;
+  player.fireRate = 200;
+  player.multiShotActive = false;
+  player.armorLevel = 0;
+  player.hasDrone = false;
+  player.drones = [];
+  player.magazineSize = 30;
+  player.ammo = 30;
+  player.bossSpawned = false;
   }
 
 
