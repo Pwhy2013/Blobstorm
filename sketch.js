@@ -127,9 +127,9 @@ if (droneChoicePending) {
   let startY = height / 2 - cardHeight / 2;
 
   let drones = [
-    { name: "Ace Drone", desc: "Fast shooter", color: color(0, 200, 255), key: "1" },
-    { name: "Laser Drone", desc: "Beam attack", color: color(0, 255, 0), key: "2" },
-    { name: "AOE Drone", desc: "Explodes on contact", color: color(255, 0, 255), key: "3" }
+    { name: "Ace Drone", desc: "Fast shooter", color: color(0, 200, 255) },
+    { name: "Laser Drone", desc: "Beam attack", color: color(0, 255, 0) },
+    { name: "AOE Drone", desc: "Explodes on contact", color: color(255, 0, 255)}
   ];
 
   for (let i = 0; i < drones.length; i++) {
@@ -143,8 +143,6 @@ if (droneChoicePending) {
     text(d.name, x + cardWidth / 2, startY + 30);
     textSize(16);
     text(d.desc, x + cardWidth / 2, startY + 65);
-    textSize(14);
-    text(`Press ${d.key}`, x + cardWidth / 2, startY + 95);
   }
 
   return; // stop game updates while choosing
