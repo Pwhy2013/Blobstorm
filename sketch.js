@@ -1,4 +1,5 @@
 let boss;
+let dashSpeed = 25;
 let bossActive = false;
 let fadeAlpha = 175; // fully opaque at start
 let isStarting = false; 
@@ -194,6 +195,10 @@ if (isReloading) {
   }
   
 score = max(0, score);
+player.position.add(player.velocity);
+
+// Add friction so the dash slows down
+player.velocity.mult(0.9);
 
   drawAmmoBar();
   // Enemies
@@ -375,6 +380,11 @@ function displayReloadBar() {
 class Player {
   constructor() {
     this.position = createVector(width / 2, height / 2);
+    this.isInvincible = false;
+    this.invincibilityTimer = 0;
+
+    this.dashCooldown = 1000; // milliseconds
+    this.lastDashTime = -Infinity;
     this.size = 20;
     this.speed = 5;
     this.maxHealth = 100;
@@ -416,6 +426,14 @@ class Player {
       // update drones, but skip removed-targets etc.
       let d = this.drones[i];
       if (d) d.update();
+    }
+     this.position.add(this.velocity);
+    this.velocity.mult(0.9); // friction
+
+    // Handle invincibility timer
+    if (this.isInvincible) {
+      this.invincibilityTimer -= deltaTime;
+      if (this.invincibilityTimer <= 0) this.isInvincible = false;
     }
     this.constrain();
     if (millis() - this.lastShotTime > this.fireRate && (mouseIsPressed || keyIsDown(32))) {
@@ -964,14 +982,6 @@ class ShootingEnemy extends Enemy {
 }
 
 
-
-function mousePressed() {
-  // prevent shooting from happening while in menu/shop/paused
-  if (!startGame || isPaused || shopOpen || droneChoicePending) return;
-  player.shoot();
-}
-
-
 function resetGame() {
   player = new Player();
   bullets = [];
@@ -986,7 +996,7 @@ function resetGame() {
   droneChoicePending = false;
   Dronelimit = 30;
   startGame = false; 
-  boss = [];
+  boss = null;
   player.size = 20;
   player.speed = 5;
   player.maxHealth = 100;
@@ -1406,6 +1416,38 @@ function keyPressed() {
     isPaused = !isPaused;
     return;
   }
+  
+  if (key === "e"|| key === "E") {
+  dashPlayer(player, createVector(mouseX, mouseY));
+}
+
+}
+function dashPlayer(player, target, dashSpeed = 15, invincibilityDuration = 300) {
+  if (!player) return;
+
+  // Check cooldown
+  if (millis() - player.lastDashTime < player.dashCooldown) return;
+
+  // Dash direction
+  let direction = p5.Vector.sub(target, player.position).normalize();
+
+  // Apply dash velocity
+  player.velocity = direction.mult(dashSpeed);
+
+  // Temporary invincibility
+  player.isInvincible = true;
+  player.invincibilityTimer = invincibilityDuration;
+
+  // Update last dash time
+  player.lastDashTime = millis();
+
+  // Spawn dash particles along dash direction
+  for (let i = 0; i < 8; i++) {
+    let angle = direction.heading() + random(-PI / 6, PI / 6);
+    let speed = random(2, 6);
+    let vel = p5.Vector.fromAngle(angle).mult(speed);
+    particles.push(new Particle(player.position.x, player.position.y, vel));
+  }
 }
 
 
@@ -1541,8 +1583,8 @@ function drawTitleScreen() {
   text("🕹️ Controls:", bx, by); by += 28;
   text("WASD - Move", bx, by); by += 22;
   text("Mouse / left click - Shoot", bx, by); by += 22;
-  text("ESC - Pause / P - Shop", bx, by);
-
+  text("ESC - Pause / P - Shop", bx, by); by += 22;
+  text("E - Dash towards mouse", bx, by); by += 22;
   // --- Start Prompt ---
   textAlign(CENTER, CENTER);
   textSize(24);
