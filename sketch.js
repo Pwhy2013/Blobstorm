@@ -1,4 +1,5 @@
 let boss;
+let shopPanels = []; // store clickable panel info
 let dashSpeed = 25;
 let bossActive = false;
 let fadeAlpha = 175; // fully opaque at start
@@ -57,7 +58,6 @@ let upgradeOptions = [
     action: () => {
       if (dronesOwned < Dronelimit) {
         droneChoicePending = true;
-        score -= 100;     // subtract cost
         dronesOwned += 1;
       } else {
         console.log("Drone limit reached!");
@@ -1299,8 +1299,6 @@ class AOEExplosion {
     return millis() - this.createdAt > this.duration;
   }
 }
-
-
 function drawShop() {
   background(50, 100, 150, 220);
 
@@ -1318,10 +1316,21 @@ function drawShop() {
   let panelW = 360;
   let panelH = 50;
 
+  shopPanels = []; // clear previous frame panels
+
   for (let i = 0; i < upgradeOptions.length; i++) {
     let option = upgradeOptions[i];
     let panelX = width / 2 - panelW / 2;
     let panelY = startY + i * spacing;
+
+    // Save panel info for clicks
+    shopPanels.push({
+      x: panelX,
+      y: panelY,
+      w: panelW,
+      h: panelH,
+      option: option
+    });
 
     // Background panel
     fill(30, 150);
@@ -1343,6 +1352,7 @@ function drawShop() {
     text(`Current: ${current}`, panelX + 20, panelY + 28);
   }
 }
+
 // Helper function to get current upgrade value
 function getCurrentValue(name) {
   switch(name) {
@@ -1364,17 +1374,54 @@ function getCurrentValue(name) {
       return "-";
   }
 }
+function mousePressed() {
+  if (shopOpen) {
+    for (let panel of shopPanels) {
+      if (mouseX > panel.x && mouseX < panel.x + panel.w &&
+          mouseY > panel.y && mouseY < panel.y + panel.h) {
+        
+        if (score >= panel.option.cost) {
+          panel.option.action();  // apply upgrade
+          score -= panel.option.cost; // deduct cost
+        }
+      }
+    }
+  }
+
+  // Drone selection click (optional)
+  if (droneChoicePending) {
+    handleDroneClick();
+  }
+}
+function handleDroneClick() {
+  let cardWidth = 200;
+  let cardHeight = 120;
+  let spacing = 50;
+  let startX = width / 2 - cardWidth - spacing;
+  let startY = height / 2 - cardHeight / 2;
+
+  let drones = [
+    { name: "Ace Drone", color: color(0, 200, 255) },
+    { name: "Laser Drone", color: color(0, 255, 0) },
+    { name: "AOE Drone", color: color(255, 0, 255) }
+  ];
+
+  for (let i = 0; i < drones.length; i++) {
+    let x = startX + i * (cardWidth + spacing);
+    let y = startY;
+
+    if (mouseX > x && mouseX < x + cardWidth &&
+        mouseY > y && mouseY < y + cardHeight) {
+      
+      if (drones[i].name === "Ace Drone") addDrone(new AceDrone(player));
+      if (drones[i].name === "Laser Drone") addDrone(new LaserDrone(player));
+      if (drones[i].name === "AOE Drone") addDrone(new AOEDrone(player));
+    }
+  }
+}
 
 
 function keyPressed() {
-  
-  // --- DRONE CHOICE ---
-  if (droneChoicePending) {
-    if (key === "1") addDrone(new AceDrone(player, random(TWO_PI)));
-    else if (key === "2") addDrone(new LaserDrone(player, random(TWO_PI)));
-    else if (key === "3") addDrone(new AOEDrone(player, random(TWO_PI)));
-    return;
-  }
   // --- SHOP TOGGLE ---
   if (key === "p" || key === "P") {
     shopOpen = !shopOpen;
@@ -1387,22 +1434,7 @@ function keyPressed() {
     return;
   }
 
-  // --- SHOP PURCHASES ---
-  if (shopOpen) {
-    let choice = parseInt(key);
-    if (droneChoicePending === true){
-      return;
-    }
-      else{
-    if (!isNaN(choice) && choice >= 1 && choice <= upgradeOptions.length) {
-      let option = upgradeOptions[choice - 1];
-      if (score >= option.cost) {
-        score -= option.cost;
-        option.action(); // apply upgrade
-      }}
-    }
-    return; // don’t trigger other actions when shop is open
-  }
+
 
   // --- GAME OVER RESTART ---
   if (player.health <= 0 && (key === "r" || key === "R")) {
