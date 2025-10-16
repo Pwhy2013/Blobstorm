@@ -3,9 +3,7 @@
 Very hard, please do NOT crash out.
 
 A **free browser arena shooter** built with [p5.js](https://p5js.org/).
-Level up, fight bosses, unlock drones, and survive as long as you can!
-
-👉 **Play now:** [Blobstorm on GitHub Pages](https://pwhy2013.github.io/Blobstorm/)
+ [Blobstorm on GitHub Pages](https://pwhy2013.github.io/Blobstorm/)
 
 ---
 
@@ -21,9 +19,10 @@ Level up, fight bosses, unlock drones, and survive as long as you can!
 
 ## 🚀 How to Play
 
-* **WASD / Arrow Keys** – Move
+* **WASD** – Move
 * **Mouse** – Aim
 * **Click** – Shoot
+* **E** - Dash towards your mouse
 * Defeat enemies to gain XP, upgrade, and survive waves
 
 ---
