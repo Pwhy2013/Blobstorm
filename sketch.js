@@ -1386,9 +1386,14 @@ function mousePressed() {
     }
   }
 
-  // Drone selection click (optional)
+  // Drone selection click
   if (droneChoicePending) {
     handleDroneClick();
+  }
+    // Check if mouse clicked near the link
+  if (mouseX > linkX - linkW/2 && mouseX < linkX + linkW/2 &&
+      mouseY > linkY - linkH/2 && mouseY < linkY + linkH/2) {
+    window.open(githubLink, "_blank");
   }
 }
 function handleDroneClick() {
@@ -1573,12 +1578,13 @@ pop(); // end gun/arms rotation
 
   pop(); // end player transform
 }
+let githubLink = "https://github.com/Pwhy2013/Blobstorm/discussions";
+let linkX, linkY, linkW, linkH;
 
 function drawTitleScreen() {
-  // --- Background ---
   background(20);
   
-  // floating particles for atmosphere
+  // --- Floating particles ---
   for (let i = 0; i < 40; i++) {
     let x = (frameCount * 0.3 + i * 80) % width;
     let y = (i * 200 + frameCount * 0.7) % height;
@@ -1587,7 +1593,7 @@ function drawTitleScreen() {
     ellipse(x, y, 6 + sin(frameCount * 0.05 + i) * 3);
   }
 
-  // --- Title Glow ---
+  // --- Title ---
   textAlign(CENTER, CENTER);
   let glow = abs(sin(frameCount * 0.05)) * 180 + 75;
   textSize(80);
@@ -1604,7 +1610,7 @@ function drawTitleScreen() {
   let boxW = 320, boxH = 160;
   fill(30, 180);
   rect(width / 2 - boxW/2, height / 2 - boxH/2 + 40, boxW, boxH, 18);
-  
+
   textSize(18);
   fill(255);
   textAlign(LEFT, TOP);
@@ -1615,12 +1621,23 @@ function drawTitleScreen() {
   text("Mouse / left click - Shoot", bx, by); by += 22;
   text("ESC - Pause / P - Shop", bx, by); by += 22;
   text("E - Dash towards mouse", bx, by); by += 22;
+
   // --- Start Prompt ---
   textAlign(CENTER, CENTER);
   textSize(24);
   let alpha = map(sin(frameCount * 0.05), -1, 1, 100, 255);
   fill(255, alpha);
   text("Press SPACE to Start", width / 2, height - 100);
+
+  // --- GitHub Link ---
+  textSize(16);
+  fill(100, 200, 255);
+  textStyle(NORMAL);
+  linkX = width / 2;
+  linkY = height - 50;
+  text("Report bugs and issues here", linkX, linkY);
+  linkW = textWidth("Report bugs and issues here");
+  linkH = 16;
 }
 
 function drawGameOverScreen() {
