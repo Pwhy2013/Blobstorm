@@ -447,11 +447,11 @@ class Player {
   display() {
     const angle = atan2(mouseY - this.position.y, mouseX - this.position.x);
     const shooting = mouseIsPressed || keyIsDown(32);
-    const armored = this.level >= 3;
+    const armored = this.level >= 6;
     for (let drone of this.drones) if (drone) drone.display();
     let helmetStyle = "basic";
-    if (this.level >= 5) helmetStyle = "military";
-    if (this.level >= 10) helmetStyle = "riot";
+    if (this.level >= 15) helmetStyle = "military";
+    if (this.level >= 30) helmetStyle = "riot";
     drawPlayerCharacter(this.position.x, this.position.y, angle, shooting, armored, helmetStyle);
   }
   aim() {
@@ -510,7 +510,7 @@ class Player {
   }
   checkLevelUp() {
   let xpNeeded = this.level * 100;
-  while (this.xp >= xpNeeded) {
+  while (this.xp >= xpNeeded && this.level<40) {
     this.level++;
     this.xp -= xpNeeded;  // ✅ keep leftover XP
     this.upgradeWeapon();
