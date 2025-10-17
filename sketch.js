@@ -1184,7 +1184,7 @@ class AceDrone extends Drone {
     super(player, angleOffset);
     this.fireRate = 90;
     this.bulletSpeed = 10;
-    this.bulletDamage = player.bulletDamage/4;
+    this.bulletDamage = player.bulletDamage/8;
   }
 }
 
@@ -1192,7 +1192,7 @@ class LaserDrone extends Drone {
   constructor(player, angleOffset = 0) {
     super(player, angleOffset);
     this.beamLength = 2000000;
-    this.damagePerSecond = player.bulletDamage/2;
+    this.damagePerSecond = player.bulletDamage/4;
   }
   update() {
     // frame-rate independent rotation
