@@ -1,4 +1,8 @@
 let boss; 
+let victoryCutsceneActive = false;
+let victoryTimer = 0;
+let victoryDuration = 7000; // 7 seconds
+let victoryParticles = [];
 let cutsceneActive = false;
 let cutsceneTimer = 0;
 let cutsceneDuration = 7000; // 7 seconds cutscene
@@ -178,6 +182,12 @@ if (cutsceneActive) {
   drawCutscene();
   return; // stop other updates while cutscene plays
 }
+  
+if (victoryCutsceneActive) {
+  drawVictoryCutscene();
+  return;
+}
+
 
   // --- Game Logic ---
   player.update();
@@ -255,7 +265,7 @@ if (!cutsceneActive && !droneChoicePending && !shopOpen && !bossActive) {
       if (bullet.checkCollision(enemy)) {
   bullet.toRemove = true;
   enemy.takeDamage(bullet.damage);
-  spawnParticles(bullet.position.x, bullet.position.y, 5);
+  spawnParticles(bullet.position.x, bullet.position.y, 2);
 
         break;
       }
@@ -286,7 +296,7 @@ if (bossActive && boss) {
 }
 
 function checkBossSpawn() {
-  if (!bossActive && player.level === 100 && player.bossSpawned === false) {
+  if (!bossActive && player.level === 40 && player.bossSpawned === false) {
     boss = new Boss(); // no arguments
     bossActive = true;
     player.bossSpawned = true;
@@ -660,12 +670,13 @@ class Enemy {
 }
 
 }
-class Boss {
-  constructor() {
+class Boss extends Enemy {
+  constructor(x,y) {  
+    super(x,y);
     this.position = createVector(width / 2, -200); // starts offscreen
     this.size = 180;
-    this.health = 1000000000;
-    this.maxHealth = 1000000000;
+    this.health = 1000000;
+    this.maxHealth = 1000000;
     this.entrySpeed = 2;
     this.phase = 0;
     this.active = false;
@@ -745,7 +756,7 @@ enemyBullets.push(new Bullet(this.position.x, this.position.y, targetX, targetY,
       if (d < this.size / 2 + 20) {
         this.takeDamage(b.damage || 25);
         bullets.splice(i, 1);
-            spawnParticles(this.position.x, this.position.y, 20);
+        spawnParticles(this.position.x, this.position.y, 10);
         
       }
     }
@@ -758,11 +769,19 @@ enemyBullets.push(new Bullet(this.position.x, this.position.y, targetX, targetY,
     }
   }
 
-  die() {
-    this.health = 0;
-    bossActive = false;
-    spawnParticles(this.position.x, this.position.y, 80);
-  }
+die() {
+  this.health = 0;
+  bossActive = false;
+
+
+  // spawn initial explosion burst
+  spawnParticles(this.position.x, this.position.y, 150);
+
+  // --- Trigger Victory Cutscene ---
+  victoryCutsceneActive = true;
+  victoryTimer = millis();
+}
+
 
   draw() {
     // Boss body
@@ -787,14 +806,24 @@ enemyBullets.push(new Bullet(this.position.x, this.position.y, targetX, targetY,
     this.drawHealthBar();
   }
 
-  drawHealthBar() {
+ drawHealthBar() {
     noStroke();
+    // Background bar
     fill(0, 100);
     rect(width / 4, 30, width / 2, 20, 5);
+    
+    // Health portion
     fill(255, 0, 0);
     let barWidth = map(this.health, 0, this.maxHealth, 0, width / 2);
     rect(width / 4, 30, barWidth, 20, 5);
-  }
+    
+    // Health text
+    fill(255); // white text
+    textAlign(CENTER, CENTER);
+    textSize(16);
+    text(`${Math.round(this.health)} / ${this.maxHealth}`, width / 2, 40);
+}
+
 }
 
 
@@ -1227,6 +1256,15 @@ class Drone {
       minDist = d;
     }
   }
+// Include boss if it's active
+if (bossActive && boss) {
+  let d = dist(this.position.x, this.position.y, boss.position.x, boss.position.y);
+  if (d < minDist) {
+    minDist = d;
+    closest = boss;
+  }
+}
+
 
 
   return closest;
@@ -1246,7 +1284,7 @@ class AceDrone extends Drone {
     super(player, angleOffset);
     this.fireRate = 90;
     this.bulletSpeed = 10;
-    this.bulletDamage = player.bulletDamage/8;
+    this.bulletDamage = player.bulletDamage/6;
   }
 }
 
@@ -1792,8 +1830,7 @@ function drawCutscene() {
     text("One hero dares to stand...", width / 2, height / 4);
   } else if (elapsed < 6000) {
     text("Enemies gather in the distance...", width / 2, height / 4);
-    fill(255, 0, 0, map(elapsed, 4000, 6000, 0, 200));
-    rect(width - 200, height / 2 - 100, 150, 150, 20); // boss placeholder
+    fill(255, 0, 0, map(elapsed, 4000, 6000, 0, 200));  
   } else if (elapsed < cutsceneDuration) {
     text("Prepare for battle!", width / 2, height / 4);
   }
@@ -1806,5 +1843,53 @@ if (elapsed > cutsceneDuration - fadeDuration) {
   if (elapsed >= cutsceneDuration) {
     cutsceneActive = false;
     startGame = true;
+  }
+}
+function drawVictoryCutscene() {
+  let elapsed = millis() - victoryTimer;
+  let t = constrain(elapsed / victoryDuration, 0, 1);
+
+  // --- fade-in factor (first 20% of cutscene) ---
+  let fadeIn = constrain(t / 0.2, 0, 1); // goes from 0 to 1 over first 20% of duration
+
+  // background fade in
+  background(0, map(t, 0, 1, 0, 150) * fadeIn);
+
+  // --- cinematic camera zoom effect ---
+  push();
+  translate(width / 2, height / 2);
+  scale(1 + 0.1 * sin(t * PI));
+  fill(255, 220 * fadeIn); // fade in text
+  textAlign(CENTER, CENTER);
+  textSize(64);
+  textStyle(BOLD);
+  text("VICTORY!", 0, -50);
+  textSize(24);
+  textStyle(NORMAL);
+  text("The boss has been defeated.", 0, 20);
+  pop();
+
+  // --- spawn particles ---
+  if (frameCount % 3 === 0) {
+    victoryParticles.push(new Particle(random(width), random(height)));
+  }
+
+  // --- update and draw victory particles ---
+  for (let i = victoryParticles.length - 1; i >= 0; i--) {
+    victoryParticles[i].update();
+    victoryParticles[i].display(fadeIn); // pass fadeIn to particles for gradual appearance
+    if (victoryParticles[i].isDead()) victoryParticles.splice(i, 1);
+  }
+
+  // --- white flash near the end ---
+  if (t > 0.9) {
+    fill(255, map(t, 0.9, 1, 0, 255));
+    rect(0, 0, width, height);
+  }
+
+  // --- transition back to shop/title after it ends ---
+  if (elapsed >= victoryDuration) {
+    victoryCutsceneActive = false;
+    startGame = false;
   }
 }
