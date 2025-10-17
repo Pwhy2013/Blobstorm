@@ -1,7 +1,10 @@
-let boss;
+let boss; 
+let cutsceneActive = false;
+let cutsceneTimer = 0;
+let cutsceneDuration = 7000; // 7 seconds cutscene
+let bossActive = false;
 let shopPanels = []; // store clickable panel info
 let dashSpeed = 25;
-let bossActive = false;
 let fadeAlpha = 175; // fully opaque at start
 let isStarting = false; 
 let player;
@@ -74,8 +77,8 @@ function setup() {
 function draw() {
   background(175);
 
-  // --- Start Screen ---
-if (!startGame) {
+ // --- Start Screen ---
+if (!startGame && !cutsceneActive) {
   drawTitleScreen();
 
   // Press SPACE to trigger fade-out
@@ -85,21 +88,22 @@ if (!startGame) {
 
   // Smooth easing fade
   if (isStarting) {
-    fadeAlpha = lerp(fadeAlpha, 0, 0.08); // easing speed (0.05–0.1 works well)
+    fadeAlpha = lerp(fadeAlpha, 0, 0.08); 
     fill(0, fadeAlpha);
     noStroke();
     rect(0, 0, width, height);
 
-    // Once nearly transparent, switch to game
     if (fadeAlpha < 2) {
       fadeAlpha = 0;
-      startGame = true;
+      cutsceneActive = true; // start cutscene
+      cutsceneTimer = millis();
       isStarting = false;
     }
   }
 
   return;
 }
+
 
 
   // --- Game Over ---
@@ -170,12 +174,15 @@ if (isReloading) {
     isReloading = false;
   }
 }
+if (cutsceneActive) {
+  drawCutscene();
+  return; // stop other updates while cutscene plays
+}
 
   // --- Game Logic ---
   player.update();
   player.display();
 
-  // Enemy Bullets
   for (let i = enemyBullets.length - 1; i >= 0; i--) {
     let enemyBullet = enemyBullets[i];
     enemyBullet.update();
@@ -216,7 +223,11 @@ for (let i = enemies.length - 1; i >= 0; i--) {
     enemy.markedForRemoval = true;
   }
 }
-  
+if (!cutsceneActive && !droneChoicePending && !shopOpen && !bossActive) {
+  spawnEnemies();
+}
+
+
   checkBossSpawn();
   // Health bar & Info Panel
   displayHealthBar();
@@ -266,38 +277,22 @@ for (let i = enemies.length - 1; i >= 0; i--) {
   }
 
   // spawn enemies (difficulty scaling inside)
-  spawnEnemies();
-  
-if (bossActive) {
-  boss.display();
-  boss.update(); 
-   boss.checkPlayerCollision(player);
-  // Check collisions with player bullets
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    let b = bullets[i];
-    let bPos = b.position;
-if (bPos.x > boss.position.x && bPos.x < boss.position.x + boss.width &&
-    bPos.y > boss.position.y && bPos.y < boss.position.y + boss.height) {
-  boss.takeDamage(b.damage);
-  bullets.splice(i, 1);
-}
-      if (boss.health <= 0) {
-        bossActive = false;
-        score += 5000;
-      }
-    }
-  
+
+if (bossActive && boss) {
+  boss.update();
+  boss.draw();
 }
 
-
 }
+
 function checkBossSpawn() {
-  if (!bossActive && player.level % 10 === 0 && player.bossSpawned === false) { // example threshold
+  if (!bossActive && player.level === 100 && player.bossSpawned === false) {
+    boss = new Boss(); // no arguments
     bossActive = true;
-    boss = new Boss(width / 2, 50);
     player.bossSpawned = true;
   }
 }
+
 
 
 function spawnEnemies() {
@@ -665,76 +660,143 @@ class Enemy {
 }
 
 }
-class Boss extends Enemy{
-  constructor(x, y, w = 150, h = 80,  health = 50 * (player.level ** 1.5) , damage = 200, speed = 1) {
-    super(x, y, speed);
-    this.width = w;
-    this.height = h;
-    this.maxHealth = health;
-    this.health = health;
-    this.damage = damage;
-    this.speed = speed;  // ✅ Fix added
-    this.velocity = createVector(0, 0);
-  }
+class Boss {
+  constructor() {
+    this.position = createVector(width / 2, -200); // starts offscreen
+    this.size = 180;
+    this.health = 1000000000;
+    this.maxHealth = 1000000000;
+    this.entrySpeed = 2;
+    this.phase = 0;
+    this.active = false;
 
-  display() {
-    fill(255, 0, 0);
-    rect(this.position.x, this.position.y, this.width, this.height, 8);
-    
-    // Health bar
-    fill(0);
-    rect(this.position.x, this.position.y - 12, this.width, 6);
-    fill(0, 255, 0);
-    let healthWidth = map(this.health, 0, this.maxHealth, 0, this.width);
-    rect(this.position.x, this.position.y - 12, healthWidth, 6);
+    this.bulletTimer = 0;
+    this.minionTimer = 0;
   }
 
   update() {
+    // --- Entrance ---
+    if (!this.active) {
+      this.position.y += this.entrySpeed;
+      if (this.position.y >= 150) {
+        this.position.y = 150;
+        this.active = true;
+      }
+      return;
+    }
+
+    // --- Movement (smooth side-to-side oscillation) ---
+    this.position.x = width / 2 + sin(frameCount * 0.02) * 250;
+
+    // --- Handle boss phases ---
+    this.handlePhases();
+
+    // --- Targeted shooting ---
+    if (this.bulletTimer <= 0) {
+      this.shootAtPlayer();
+      this.bulletTimer = this.phase === 3 ? 30 : this.phase === 2 ? 50 : 70;
+    } else {
+      this.bulletTimer--;
+    }
+
+    // --- Minion spawning ---
+    if (this.minionTimer <= 0 && this.phase >= 1) {
+      for (let i = 0; i < this.phase; i++) {
+        enemies.push(new NormalEnemy(random(100, width - 100), -50, enemySpeed * 1.3));
+      }
+      this.minionTimer = 300 - this.phase * 60;
+    } else {
+      this.minionTimer--;
+    }
+
+    // --- Check collisions with player bullets ---
+    this.checkBulletCollisions();
+  }
+
+  handlePhases() {
+    let pct = this.health / this.maxHealth;
+    if (pct < 0.25) this.phase = 3;
+    else if (pct < 0.5) this.phase = 2;
+    else if (pct < 0.75) this.phase = 1;
+    else this.phase = 0;
+  }
+
+  shootAtPlayer() {
     if (!player) return;
-    let angle = atan2(player.position.y - this.position.y, player.position.x - this.position.x);
-    this.velocity = createVector(cos(angle), sin(angle)).mult(this.speed);
-    this.position.add(this.velocity);
+
+    let dx = player.x - this.position.x;
+    let dy = player.y - this.position.y;
+    let angle = atan2(dy, dx);
+    let speed = 5 + this.phase;
+    let vx = cos(angle) * speed;
+    let vy = sin(angle) * speed;
+
+let targetX = player.position.x;
+let targetY = player.position.y;
+enemyBullets.push(new Bullet(this.position.x, this.position.y, targetX, targetY, 5 + this.phase, 10));
+
   }
 
-  checkPlayerCollision(player) {
-    if (
-      player.position.x + player.size / 2 > this.position.x &&
-      player.position.x - player.size / 2 < this.position.x + this.width &&
-      player.position.y + player.size / 2 > this.position.y &&
-      player.position.y - player.size / 2 < this.position.y + this.height
-    ) {
-      player.takeDamage(this.damage);
+  checkBulletCollisions() {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      let b = bullets[i];
+     let d = dist(this.position.x, this.position.y, b.position.x, b.position.y);
+
+      if (d < this.size / 2 + 20) {
+        this.takeDamage(b.damage || 25);
+        bullets.splice(i, 1);
+            spawnParticles(this.position.x, this.position.y, 20);
+        
+      }
     }
   }
 
-  checkBulletCollision(bullet) {
-    let b = bullet.position;
-    if (
-      b.x > this.position.x && b.x < this.position.x + this.width &&
-      b.y > this.position.y && b.y < this.position.y + this.height
-    ) {
-      this.takeDamage(bullet.damage);
-      return true; // bullet hit
-    }
-    return false; // no hit
-  }
-
-  takeDamage(amount) {
-    this.health -= amount;
-    spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 30);
+  takeDamage(dmg) {
+    this.health -= dmg;
     if (this.health <= 0) {
-      this.health = 0;
-      bossActive = false; // boss defeated
-      score += 5000;
-      player.increaseXP(5000);
-      spawnParticles(this.position.x + this.width/2, this.position.y + this.height/2, 300);
+      this.die();
     }
   }
 
-  isDead() {
-    return this.health <= 0;
+  die() {
+    this.health = 0;
+    bossActive = false;
+    spawnParticles(this.position.x, this.position.y, 80);
+  }
+
+  draw() {
+    // Boss body
+    push();
+    rectMode(CENTER);
+    fill(255, 0, 50);
+    stroke(255);
+    strokeWeight(3);
+    rect(this.position.x, this.position.y, this.size, this.size, 25);
+
+    // Eyes
+    fill(255);
+    ellipse(this.position.x - 40, this.position.y - 20, 25, 25);
+    ellipse(this.position.x + 40, this.position.y - 20, 25, 25);
+    fill(0);
+    ellipse(this.position.x - 40, this.position.y - 20, 10, 10);
+    ellipse(this.position.x + 40, this.position.y - 20, 10, 10);
+
+    pop();
+
+    // Health bar
+    this.drawHealthBar();
+  }
+
+  drawHealthBar() {
+    noStroke();
+    fill(0, 100);
+    rect(width / 4, 30, width / 2, 20, 5);
+    fill(255, 0, 0);
+    let barWidth = map(this.health, 0, this.maxHealth, 0, width / 2);
+    rect(width / 4, 30, barWidth, 20, 5);
   }
 }
+
 
 
 // ---------------- NORMAL ENEMY ----------------
@@ -1578,6 +1640,8 @@ pop(); // end gun/arms rotation
 
   pop(); // end player transform
 }
+
+
 let githubLink = "https://github.com/Pwhy2013/Blobstorm/discussions";
 let linkX, linkY, linkW, linkH;
 
@@ -1691,4 +1755,56 @@ function drawAmmo() {
   if (isReloading) {
     text("Reloading...", x + 5, y + barHeight / 2);
   } 
+}
+
+let fadeDuration = 1000;
+function drawCutscene() {
+  let elapsed = millis() - cutsceneTimer;
+
+  background(10, 10, 30);
+
+  // --- Moving stars ---
+  for (let i = 0; i < 50; i++) {
+    let x = (i * 30 + elapsed * 0.1) % width;
+    let y = (i * 50 + elapsed * 0.05) % height;
+    noStroke();
+    fill(255, 200);
+    circle(x, y, 2);
+  }
+
+  // --- Player enters ---
+  let playerX, playerY;
+  playerY = height / 2 + 50;
+  if (elapsed < 2000) {
+    playerX = map(elapsed, 0, 2000, -50, width / 2);
+  } else {
+    playerX = width / 2;
+  }
+  drawPlayerCharacter(playerX, playerY, 0, false, false, "basic");
+
+  // --- Dialogue ---
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(28);
+  if (elapsed < 2000) {
+    text("A shadow looms over the land...", width / 2, height / 4);
+  } else if (elapsed < 4000) {
+    text("One hero dares to stand...", width / 2, height / 4);
+  } else if (elapsed < 6000) {
+    text("Enemies gather in the distance...", width / 2, height / 4);
+    fill(255, 0, 0, map(elapsed, 4000, 6000, 0, 200));
+    rect(width - 200, height / 2 - 100, 150, 150, 20); // boss placeholder
+  } else if (elapsed < cutsceneDuration) {
+    text("Prepare for battle!", width / 2, height / 4);
+  }
+if (elapsed > cutsceneDuration - fadeDuration) {
+    let alpha = map(elapsed, cutsceneDuration - fadeDuration, cutsceneDuration, 0, 255);
+    fill(0, alpha);
+    rect(0, 0, width, height);
+  }
+  // End cutscene
+  if (elapsed >= cutsceneDuration) {
+    cutsceneActive = false;
+    startGame = true;
+  }
 }
