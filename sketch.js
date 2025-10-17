@@ -1629,15 +1629,25 @@ function drawTitleScreen() {
   fill(255, alpha);
   text("Press SPACE to Start", width / 2, height - 100);
 
-  // --- GitHub Link ---
+  // --- GitHub Link with Hover Effect ---
   textSize(16);
-  fill(100, 200, 255);
   textStyle(NORMAL);
   linkX = width / 2;
   linkY = height - 50;
-  text("Report bugs and issues here", linkX, linkY);
-  linkW = textWidth("Report bugs and issues here");
+  linkW = textWidth("Report bugs and issues here!");
   linkH = 16;
+
+  // Change color on hover
+  if (mouseX > linkX - linkW/2 && mouseX < linkX + linkW/2 &&
+      mouseY > linkY - linkH/2 && mouseY < linkY + linkH/2) {
+    fill(50, 200, 255); // brighter color
+    stroke(50, 200, 255);
+    strokeWeight(1.5);
+  } else {
+    fill(100, 200, 255); // normal color
+    noStroke();
+  }
+  text("Report bugs and issues here!", linkX, linkY);
 }
 
 function drawGameOverScreen() {
