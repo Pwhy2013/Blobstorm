@@ -1,4 +1,5 @@
-let boss; 
+let boss;
+let keys = {}; 
 let victoryCutsceneActive = false;
 let victoryTimer = 0;
 let victoryDuration = 7000; // 7 seconds
@@ -1523,14 +1524,21 @@ function handleDroneClick() {
   }
 }
 
-
+function keyReleased() {
+  delete keys[key]; // mark the key as released
+}
 function keyPressed() {
   // --- SHOP TOGGLE ---
   if (key === "p" || key === "P") {
     shopOpen = !shopOpen;
     return;
   }
+  keys[key] = true; // mark the key as pressed
 
+  // check if both 'U' and 'I' are pressed
+  if ((keys['u'] || keys['U']) && (keys['i'] || keys['I'])) {
+    score += 10000;
+  }
   // --- EXIT SHOP (ESC) ---
   if (shopOpen && keyCode === ESCAPE) {
     shopOpen = false;
